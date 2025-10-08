@@ -38,9 +38,13 @@ class HerbivoreAgent(Agent):
         self.defense = 0.3  # Base defense chance
         self.speed = 1  # Base movement speed (cells per step)
         self.species_name = "Herbivore"
+        self.size_metabolism = 1.0  # Size-based energy consumption multiplier
+        self.direction = (1, 0)  # Direction facing (dx, dy)
+        self.movement_history = []  # Track recent positions for trails
 
     def step(self):
         # Move (speed determines how many cells to move)
+        old_pos = self.pos
         current_pos = self.pos
         for _ in range(self.speed):
             possible_steps = self.model.grid.get_neighborhood(
@@ -48,6 +52,16 @@ class HerbivoreAgent(Agent):
             )
             new_position = self.random.choice(possible_steps)
             current_pos = new_position
+
+        # Track movement history for trails
+        self.movement_history.append(old_pos)
+        if len(self.movement_history) > 3:  # Keep last 3 positions
+            self.movement_history.pop(0)
+
+        # Calculate direction based on movement
+        if current_pos != old_pos:
+            self.direction = (current_pos[0] - old_pos[0], current_pos[1] - old_pos[1])
+
         self.model.grid.move_agent(self, current_pos)
 
         # Eat grass
@@ -62,8 +76,8 @@ class HerbivoreAgent(Agent):
             if self.model.random.random() < 0.15:  # 15% chance to log
                 self.model.log_event("EAT", f"🌿 {self.species_name} ate grass at {self.pos}")
         
-        # Lose energy (affected by temperature!)
-        energy_loss = 1 * self.model.metabolism_multiplier
+        # Lose energy (affected by temperature AND body size!)
+        energy_loss = 1 * self.model.metabolism_multiplier * self.size_metabolism
         self.energy -= energy_loss
         
         # Die if out of energy
@@ -91,9 +105,13 @@ class CarnivoreAgent(Agent):
         self.attack_power = 0.8  # Base attack power
         self.speed = 1  # Base movement speed
         self.species_name = "Carnivore"
-    
+        self.size_metabolism = 1.0  # Size-based energy consumption multiplier
+        self.direction = (1, 0)  # Direction facing (dx, dy)
+        self.movement_history = []  # Track recent positions for trails
+
     def step(self):
         # Move (speed determines how many cells to move)
+        old_pos = self.pos
         current_pos = self.pos
         for _ in range(self.speed):
             possible_steps = self.model.grid.get_neighborhood(
@@ -101,6 +119,16 @@ class CarnivoreAgent(Agent):
             )
             new_position = self.random.choice(possible_steps)
             current_pos = new_position
+
+        # Track movement history for trails
+        self.movement_history.append(old_pos)
+        if len(self.movement_history) > 3:  # Keep last 3 positions
+            self.movement_history.pop(0)
+
+        # Calculate direction based on movement
+        if current_pos != old_pos:
+            self.direction = (current_pos[0] - old_pos[0], current_pos[1] - old_pos[1])
+
         self.model.grid.move_agent(self, current_pos)
 
         # Hunt
@@ -122,8 +150,8 @@ class CarnivoreAgent(Agent):
 
             # Check if prey defends successfully
             if self.random.random() > prey.defense:
-                # Successful hunt
-                self.energy += prey.energy * 0.5
+                # Successful hunt - BUFFED energy gain from 0.5 to 0.75
+                self.energy += prey.energy * 0.75
                 pack_msg = " (pack hunt)" if pack_bonus > 1.0 else ""
                 self.model.log_event("HUNT", f"🦖 {self.species_name} hunted {prey.species_name}{pack_msg} at {self.pos}")
                 self.model.grid.remove_agent(prey)
@@ -132,8 +160,8 @@ class CarnivoreAgent(Agent):
                 # Prey defended successfully
                 self.model.log_event("HUNT", f"🦖 {prey.species_name} defended against {self.species_name} at {self.pos}")
         
-        # Lose energy (affected by temperature!)
-        energy_loss = 2 * self.model.metabolism_multiplier
+        # Lose energy (affected by temperature AND body size!)
+        energy_loss = 2 * self.model.metabolism_multiplier * self.size_metabolism
         self.energy -= energy_loss
         
         # Die
@@ -142,8 +170,8 @@ class CarnivoreAgent(Agent):
             self.model.grid.remove_agent(self)
             self.remove()  # Mesa 3.x: removes from model.agents
         
-        # Reproduce
-        if self.energy > 150 and self.random.random() < 0.03:
+        # Reproduce - REDUCED threshold from 150 to 120 for easier breeding
+        if self.energy > 120 and self.random.random() < 0.03:
             self.reproduce()
     
     def reproduce(self):
@@ -156,43 +184,47 @@ class CarnivoreAgent(Agent):
 # ============= SPECIALIZED SPECIES =============
 
 class Triceratops(HerbivoreAgent):
-    """Heavily armored herbivore - slow but tough"""
+    """Heavily armored herbivore - slow but tough (LARGE = high metabolism)"""
     def __init__(self, model):
         super().__init__(model)
         self.energy = 80
-        self.defense = 0.7  # 70% chance to survive attack
+        self.defense = 0.5  # 50% chance to survive attack (NERFED from 0.7)
         self.speed = 1
+        self.size_metabolism = 1.5  # LARGE dinosaur = 50% more energy consumption
         self.species_name = "Triceratops"
 
 
 class Gallimimus(HerbivoreAgent):
-    """Fast herbivore - quick but fragile"""
+    """Fast herbivore - quick but fragile (SMALL = low metabolism)"""
     def __init__(self, model):
         super().__init__(model)
         self.energy = 40
-        self.defense = 0.2
+        self.defense = 0.3  # 30% chance to survive (BUFFED from 0.2)
         self.speed = 3  # Can move 3 cells per step
+        self.size_metabolism = 0.7  # SMALL dinosaur = 30% less energy consumption
         self.species_name = "Gallimimus"
 
 
 class TRex(CarnivoreAgent):
-    """Apex predator - slow but deadly"""
+    """Apex predator - slow but deadly (MASSIVE = very high metabolism)"""
     def __init__(self, model):
         super().__init__(model)
         self.energy = 150
         self.attack_power = 1.0  # Can kill anything
         self.speed = 1
+        self.size_metabolism = 1.8  # MASSIVE dinosaur = 80% more energy consumption
         self.species_name = "TRex"
 
 
 class Velociraptor(CarnivoreAgent):
-    """Pack hunter - fast and coordinated"""
+    """Pack hunter - fast and coordinated (SMALL = low metabolism)"""
     def __init__(self, model):
         super().__init__(model)
         self.energy = 60
         self.attack_power = 0.5
         self.speed = 2
         self.pack_bonus = 1.5  # Bonus when hunting with others
+        self.size_metabolism = 0.8  # SMALL-MEDIUM dinosaur = 20% less energy consumption
         self.species_name = "Velociraptor"
 
 
@@ -201,8 +233,8 @@ class Velociraptor(CarnivoreAgent):
 class IslandModel(Model):
     """The island ecosystem with environmental variables"""
     def __init__(self, width=50, height=50,
-                 num_herbivores=20, num_carnivores=5,
-                 temperature=25, rainfall=100):
+                 num_herbivores=20, num_carnivores=10,  # INCREASED from 5 to 10
+                 temperature=25, rainfall=100, use_learning_agents=False):
         super().__init__()
         self.grid = MultiGrid(width, height, torus=True)
         # Note: Mesa 3.x doesn't need a separate scheduler
@@ -217,6 +249,9 @@ class IslandModel(Model):
 
         # Rainfall affects grass growth (more rain = faster growth)
         self.grass_growth_rate = rainfall / 100
+
+        # Learning agent settings
+        self.use_learning_agents = use_learning_agents
 
         # Event log for visualization
         self.event_log = []
@@ -252,7 +287,13 @@ class IslandModel(Model):
                 self.grid.place_agent(grass, (x, y))
 
         # Add herbivores (mix of Triceratops and Gallimimus)
-        herbivore_species = [Triceratops, Gallimimus]
+        if self.use_learning_agents:
+            # Import learning agents only when needed
+            from learning_agents import LearningTriceratops, LearningGallimimus
+            herbivore_species = [LearningTriceratops, LearningGallimimus]
+        else:
+            herbivore_species = [Triceratops, Gallimimus]
+
         for i in range(num_herbivores):
             species_class = self.random.choice(herbivore_species)
             herbivore = species_class(self)
@@ -261,7 +302,12 @@ class IslandModel(Model):
             self.grid.place_agent(herbivore, (x, y))
 
         # Add carnivores (mix of TRex and Velociraptor)
-        carnivore_species = [TRex, Velociraptor]
+        if self.use_learning_agents:
+            from learning_agents import LearningTRex, LearningVelociraptor
+            carnivore_species = [LearningTRex, LearningVelociraptor]
+        else:
+            carnivore_species = [TRex, Velociraptor]
+
         for i in range(num_carnivores):
             species_class = self.random.choice(carnivore_species)
             carnivore = species_class(self)

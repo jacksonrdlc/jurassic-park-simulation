@@ -15,35 +15,60 @@ import sys
 from my_first_island import (IslandModel, GrassAgent, HerbivoreAgent, CarnivoreAgent,
                               Triceratops, Gallimimus, TRex, Velociraptor)
 
-# Colors
+# Jurassic Park Color Scheme
 COLORS = {
-    'background': (20, 20, 30),
-    'grass_full': (34, 139, 34),
-    'grass_eaten': (139, 69, 19),
-    'herbivore': (65, 105, 225),
-    'carnivore': (220, 20, 60),
-    # Species-specific colors
-    'triceratops': (100, 180, 100),    # Green herbivore
-    'gallimimus': (180, 180, 100),     # Yellow herbivore
-    'trex': (200, 50, 50),             # Dark red carnivore
-    'velociraptor': (128, 0, 128),     # Purple carnivore
-    'text': (255, 255, 255),
-    'panel': (30, 30, 40),
-    'event_birth': (40, 200, 80),
-    'event_death': (220, 50, 50),
-    'event_hunt': (255, 165, 0),
-    'event_eat': (100, 200, 100),
-    'event_info': (100, 149, 237),
+    # Environment
+    'background': (15, 25, 15),        # Deep jungle green
+    'grass_full': (45, 85, 35),        # Rich grass
+    'grass_eaten': (75, 60, 40),       # Dry earth
+    'grid_lines': (80, 100, 50),       # Subtle grid overlay
+
+    # Jurassic Park Branding
+    'jp_yellow': (255, 210, 0),        # Iconic JP yellow
+    'jp_red': (220, 20, 20),           # Danger red
+    'jp_black': (20, 20, 20),          # Deep black
+    'warning_stripe': (255, 200, 0),   # Warning yellow
+
+    # Dinosaurs - Species-specific colors
+    'triceratops': (85, 160, 70),      # Forest green herbivore
+    'gallimimus': (200, 180, 90),      # Tan/beige fast herbivore
+    'trex': (140, 40, 30),             # Blood red apex predator
+    'velociraptor': (100, 60, 120),    # Deep purple pack hunter
+    'herbivore': (80, 140, 80),        # Generic herbivore
+    'carnivore': (180, 40, 40),        # Generic carnivore
+
+    # UI Elements
+    'text': (240, 240, 240),           # Off-white text
+    'text_highlight': (255, 210, 0),   # JP yellow for highlights
+    'panel': (25, 30, 25),             # Dark panel background
+    'panel_border': (255, 210, 0),     # Yellow border
+    'containment_active': (50, 200, 80),   # Green = safe
+    'containment_warning': (255, 180, 0),  # Yellow = caution
+    'containment_breach': (255, 50, 50),   # Red = danger
+
+    # Events
+    'event_birth': (80, 220, 100),
+    'event_death': (255, 80, 80),
+    'event_hunt': (255, 140, 0),
+    'event_eat': (120, 200, 120),
+    'event_info': (150, 180, 255),
+
+    # Energy bars
+    'energy_high': (50, 200, 80),      # Green
+    'energy_medium': (255, 180, 0),    # Yellow
+    'energy_low': (255, 80, 60),       # Red
+    'energy_bg': (40, 40, 40),         # Dark background
 }
 
 class JurassicParkViz:
-    def __init__(self, width=50, height=50, cell_size=12):
+    def __init__(self, width=50, height=50, cell_size=16, use_learning_agents=False):  # INCREASED from 12 to 16
         pygame.init()
 
         # Model parameters
         self.model_width = width
         self.model_height = height
         self.cell_size = cell_size
+        self.use_learning_agents = use_learning_agents
 
         # Window dimensions
         self.grid_width = width * cell_size
@@ -56,10 +81,11 @@ class JurassicParkViz:
         self.screen = pygame.display.set_mode((self.window_width, self.window_height))
         pygame.display.set_caption("Jurassic Park Ecosystem")
 
-        # Fonts
-        self.font_large = pygame.font.Font(None, 32)
-        self.font_medium = pygame.font.Font(None, 22)
-        self.font_small = pygame.font.Font(None, 16)
+        # Fonts - Use bold for Jurassic Park aesthetic
+        self.font_title = pygame.font.Font(None, 42)      # Large title
+        self.font_large = pygame.font.Font(None, 32)      # Headers
+        self.font_medium = pygame.font.Font(None, 22)     # Stats
+        self.font_small = pygame.font.Font(None, 16)      # Details
 
         # Simulation state
         self.model = None
@@ -68,6 +94,10 @@ class JurassicParkViz:
         self.step_count = 0
         self.speed = 1  # Steps per second
         self.clock = pygame.time.Clock()
+
+        # Terrain noise for procedural grass variation
+        import random
+        self.terrain_noise = [[random.randint(0, 20) for _ in range(width)] for _ in range(height)]
 
         # Reset model
         self.reset_model()
@@ -80,9 +110,30 @@ class JurassicParkViz:
             num_herbivores=20,
             num_carnivores=5,
             temperature=25,
-            rainfall=100
+            rainfall=100,
+            use_learning_agents=self.use_learning_agents
         )
         self.step_count = 0
+
+        # Load trained models if using learning agents
+        if self.use_learning_agents:
+            import os
+            if os.path.exists('models/herbivore_final.pth'):
+                import torch
+                from learning_agents import LearningHerbivoreAgent, LearningCarnivoreAgent, NeuralNetwork
+                # Initialize models if not already done
+                if LearningHerbivoreAgent.neural_net is None:
+                    LearningHerbivoreAgent.neural_net = NeuralNetwork(19, 9)
+                if LearningCarnivoreAgent.neural_net is None:
+                    LearningCarnivoreAgent.neural_net = NeuralNetwork(19, 9)
+                # Load saved weights
+                LearningHerbivoreAgent.neural_net.load_state_dict(torch.load('models/herbivore_final.pth'))
+                LearningCarnivoreAgent.neural_net.load_state_dict(torch.load('models/carnivore_final.pth'))
+                LearningHerbivoreAgent.training_mode = False
+                LearningCarnivoreAgent.training_mode = False
+                LearningHerbivoreAgent.epsilon = 0.0
+                LearningCarnivoreAgent.epsilon = 0.0
+                print("✅ Loaded trained PyTorch models for visualization")
 
     def handle_events(self):
         """Handle keyboard/mouse events"""
@@ -107,8 +158,126 @@ class JurassicParkViz:
             self.model.step()
             self.step_count += 1
 
+    def draw_energy_bar(self, rect, energy, max_energy):
+        """Draw energy bar above an agent"""
+        bar_width = self.cell_size
+        bar_height = 4
+        bar_x = rect.centerx - bar_width // 2
+        bar_y = rect.top - 7
+
+        # Background
+        pygame.draw.rect(self.screen, COLORS['energy_bg'],
+                        (bar_x, bar_y, bar_width, bar_height))
+
+        # Energy fill
+        energy_pct = max(0, min(1, energy / max_energy))
+        fill_width = int(bar_width * energy_pct)
+
+        if energy_pct > 0.6:
+            energy_color = COLORS['energy_high']
+        elif energy_pct > 0.3:
+            energy_color = COLORS['energy_medium']
+        else:
+            energy_color = COLORS['energy_low']
+
+        if fill_width > 0:
+            pygame.draw.rect(self.screen, energy_color,
+                            (bar_x, bar_y, fill_width, bar_height))
+
+    def draw_directional_sprite(self, rect, color, direction, size_ratio, is_carnivore=False):
+        """Draw directional sprite (triangle/polygon pointing in movement direction)"""
+        import math
+
+        # Calculate angle from direction
+        if direction == (0, 0):
+            angle = 0
+        else:
+            angle = math.atan2(direction[1], direction[0])
+
+        # Create triangle pointing in direction
+        radius = int(self.cell_size * size_ratio)
+        center_x, center_y = rect.center
+
+        # Triangle points (pointing right initially, then rotated)
+        points = [
+            (center_x + radius, center_y),  # Front tip
+            (center_x - radius//2, center_y - radius//2),  # Back top
+            (center_x - radius//2, center_y + radius//2),  # Back bottom
+        ]
+
+        # Rotate points around center
+        rotated_points = []
+        for px, py in points:
+            # Translate to origin
+            tx = px - center_x
+            ty = py - center_y
+            # Rotate
+            rx = tx * math.cos(angle) - ty * math.sin(angle)
+            ry = tx * math.sin(angle) + ty * math.cos(angle)
+            # Translate back
+            rotated_points.append((center_x + rx, center_y + ry))
+
+        # Draw filled triangle
+        pygame.draw.polygon(self.screen, color, rotated_points)
+
+        # Draw outline
+        outline_color = tuple(max(0, c - 40) for c in color)
+        pygame.draw.polygon(self.screen, outline_color, rotated_points, 2)
+
+    def draw_movement_trail(self, agent):
+        """Draw fading trail showing recent movement"""
+        if not hasattr(agent, 'movement_history') or not agent.movement_history:
+            return
+
+        # Draw trail with fading alpha
+        for i, old_pos in enumerate(agent.movement_history):
+            alpha = int(100 * (i + 1) / len(agent.movement_history))  # Fade from 33 to 100
+            trail_surface = pygame.Surface((self.cell_size, self.cell_size), pygame.SRCALPHA)
+
+            # Get agent color
+            if isinstance(agent, Triceratops):
+                color = COLORS['triceratops']
+            elif isinstance(agent, Gallimimus):
+                color = COLORS['gallimimus']
+            elif isinstance(agent, TRex):
+                color = COLORS['trex']
+            elif isinstance(agent, Velociraptor):
+                color = COLORS['velociraptor']
+            else:
+                color = (128, 128, 128)
+
+            trail_color = (*color, alpha)
+            pygame.draw.circle(trail_surface, trail_color,
+                             (self.cell_size // 2, self.cell_size // 2),
+                             self.cell_size // 4)
+
+            self.screen.blit(trail_surface,
+                           (old_pos[0] * self.cell_size, old_pos[1] * self.cell_size))
+
     def draw_grid(self):
         """Draw the ecosystem grid"""
+        # Draw subtle grid overlay
+        for x in range(0, self.grid_width, self.cell_size * 5):
+            pygame.draw.line(self.screen, COLORS['grid_lines'],
+                           (x, 0), (x, self.grid_height), 1)
+        for y in range(0, self.grid_height, self.cell_size * 5):
+            pygame.draw.line(self.screen, COLORS['grid_lines'],
+                           (0, y), (self.grid_width, y), 1)
+
+        # Draw grid coordinates (A-Z, 1-N)
+        coord_font = pygame.font.Font(None, 14)
+        # X-axis labels (A, B, C...)
+        for i in range(0, self.model.grid.width, 5):
+            label = chr(65 + (i // 5) % 26)  # A-Z
+            text = coord_font.render(label, True, COLORS['text_highlight'])
+            self.screen.blit(text, (i * self.cell_size + 2, 2))
+
+        # Y-axis labels (1, 2, 3...)
+        for i in range(0, self.model.grid.height, 5):
+            label = str((i // 5) + 1)
+            text = coord_font.render(label, True, COLORS['text_highlight'])
+            self.screen.blit(text, (2, i * self.cell_size + 2))
+
         # Draw cells
         for x in range(self.model.grid.width):
             for y in range(self.model.grid.height):
@@ -124,64 +293,94 @@ class JurassicParkViz:
 
                 # Determine what to draw (priority: carnivore > herbivore > grass)
                 color = COLORS['background']
+                is_learning_agent = False
+                drawn_agent = None
+
                 for agent in cell_contents:
+                    # Check if it's a learning agent
+                    if hasattr(agent, '__class__'):
+                        is_learning_agent = 'Learning' in agent.__class__.__name__
+
                     if isinstance(agent, TRex):
                         color = COLORS['trex']
-                        pygame.draw.circle(
-                            self.screen,
-                            color,
-                            rect.center,
-                            self.cell_size // 2 - 1
-                        )
+                        # Draw movement trail first (behind sprite)
+                        self.draw_movement_trail(agent)
+                        # Draw directional sprite
+                        direction = getattr(agent, 'direction', (1, 0))
+                        self.draw_directional_sprite(rect, color, direction, 0.45, is_carnivore=True)
+                        # Draw AI indicator (white ring)
+                        if is_learning_agent:
+                            pygame.draw.circle(
+                                self.screen,
+                                (255, 255, 255),
+                                rect.center,
+                                int(self.cell_size * 0.45),
+                                2  # Ring thickness
+                            )
+                        drawn_agent = agent
                         break
                     elif isinstance(agent, Velociraptor):
                         color = COLORS['velociraptor']
-                        pygame.draw.circle(
-                            self.screen,
-                            color,
-                            rect.center,
-                            self.cell_size // 2 - 1
-                        )
+                        self.draw_movement_trail(agent)
+                        direction = getattr(agent, 'direction', (1, 0))
+                        self.draw_directional_sprite(rect, color, direction, 0.4, is_carnivore=True)
+                        if is_learning_agent:
+                            pygame.draw.circle(self.screen, (255, 255, 255),
+                                             rect.center, int(self.cell_size * 0.4), 2)
+                        drawn_agent = agent
                         break
                     elif isinstance(agent, Triceratops):
                         color = COLORS['triceratops']
-                        pygame.draw.circle(
-                            self.screen,
-                            color,
-                            rect.center,
-                            self.cell_size // 3
-                        )
+                        self.draw_movement_trail(agent)
+                        direction = getattr(agent, 'direction', (1, 0))
+                        self.draw_directional_sprite(rect, color, direction, 0.35, is_carnivore=False)
+                        if is_learning_agent:
+                            pygame.draw.circle(self.screen, (255, 255, 255),
+                                             rect.center, int(self.cell_size * 0.35), 2)
+                        drawn_agent = agent
                         break
                     elif isinstance(agent, Gallimimus):
                         color = COLORS['gallimimus']
-                        pygame.draw.circle(
-                            self.screen,
-                            color,
-                            rect.center,
-                            self.cell_size // 3
-                        )
+                        self.draw_movement_trail(agent)
+                        direction = getattr(agent, 'direction', (1, 0))
+                        self.draw_directional_sprite(rect, color, direction, 0.3, is_carnivore=False)
+                        if is_learning_agent:
+                            pygame.draw.circle(self.screen, (255, 255, 255),
+                                             rect.center, int(self.cell_size * 0.3), 2)
+                        drawn_agent = agent
                         break
                     elif isinstance(agent, CarnivoreAgent):
                         color = COLORS['carnivore']
-                        pygame.draw.circle(
-                            self.screen,
-                            color,
-                            rect.center,
-                            self.cell_size // 2 - 1
-                        )
+                        self.draw_movement_trail(agent)
+                        direction = getattr(agent, 'direction', (1, 0))
+                        self.draw_directional_sprite(rect, color, direction, 0.4, is_carnivore=True)
+                        if is_learning_agent:
+                            pygame.draw.circle(self.screen, (255, 255, 255),
+                                             rect.center, int(self.cell_size * 0.4), 2)
+                        drawn_agent = agent
                         break
                     elif isinstance(agent, HerbivoreAgent):
                         color = COLORS['herbivore']
-                        pygame.draw.circle(
-                            self.screen,
-                            color,
-                            rect.center,
-                            self.cell_size // 3
-                        )
+                        self.draw_movement_trail(agent)
+                        direction = getattr(agent, 'direction', (1, 0))
+                        self.draw_directional_sprite(rect, color, direction, 0.3, is_carnivore=False)
+                        if is_learning_agent:
+                            pygame.draw.circle(self.screen, (255, 255, 255),
+                                             rect.center, int(self.cell_size * 0.3), 2)
+                        drawn_agent = agent
                         break
                     elif isinstance(agent, GrassAgent):
-                        color = COLORS['grass_full'] if agent.energy > 0 else COLORS['grass_eaten']
-                        pygame.draw.rect(self.screen, color, rect)
+                        # Add procedural variation to grass color
+                        base_color = COLORS['grass_full'] if agent.energy > 0 else COLORS['grass_eaten']
+                        noise = self.terrain_noise[y][x]
+                        varied_color = tuple(max(0, min(255, c + noise - 10)) for c in base_color)
+                        pygame.draw.rect(self.screen, varied_color, rect)
+
+                # Draw energy bar for dinosaurs
+                if drawn_agent and hasattr(drawn_agent, 'energy'):
+                    if isinstance(drawn_agent, (HerbivoreAgent, CarnivoreAgent)):
+                        max_energy = 150 if isinstance(drawn_agent, CarnivoreAgent) else 100
+                        self.draw_energy_bar(rect, drawn_agent.energy, max_energy)
 
     def draw_panel(self):
         """Draw info panel on the right"""
@@ -194,49 +393,139 @@ class JurassicParkViz:
             (panel_x, 0, self.panel_width, self.window_height)
         )
 
-        y_offset = 20
+        # Yellow border (Jurassic Park aesthetic)
+        pygame.draw.rect(
+            self.screen,
+            COLORS['panel_border'],
+            (panel_x, 0, self.panel_width, self.window_height),
+            3  # Border width
+        )
 
-        # Title
-        title = self.font_large.render("JURASSIC PARK", True, COLORS['text'])
-        self.screen.blit(title, (panel_x + 20, y_offset))
+        y_offset = 15
+
+        # === JURASSIC PARK BRANDING ===
+        # Main title
+        title = self.font_title.render("JURASSIC PARK", True, COLORS['text_highlight'])
+        title_rect = title.get_rect(center=(panel_x + self.panel_width // 2, y_offset + 20))
+        self.screen.blit(title, title_rect)
         y_offset += 50
 
-        # Separator
-        pygame.draw.line(self.screen, COLORS['text'],
-                        (panel_x + 20, y_offset),
-                        (panel_x + self.panel_width - 20, y_offset), 1)
-        y_offset += 20
+        # Subtitle
+        subtitle = self.font_small.render("ISLA NUBLAR - SECTOR 7G", True, COLORS['text'])
+        subtitle_rect = subtitle.get_rect(center=(panel_x + self.panel_width // 2, y_offset))
+        self.screen.blit(subtitle, subtitle_rect)
+        y_offset += 25
 
-        # Stats
+        # Warning stripe separator
+        for i in range(0, self.panel_width, 40):
+            stripe_color = COLORS['jp_yellow'] if (i // 40) % 2 == 0 else COLORS['jp_black']
+            pygame.draw.rect(self.screen, stripe_color, (panel_x + i, y_offset, 40, 8))
+        y_offset += 18
+
+        # === CONTAINMENT STATUS ===
+        # Calculate containment status based on population
         tri_count = len([a for a in self.model.agents if isinstance(a, Triceratops)])
         gal_count = len([a for a in self.model.agents if isinstance(a, Gallimimus)])
         trex_count = len([a for a in self.model.agents if isinstance(a, TRex)])
         vel_count = len([a for a in self.model.agents if isinstance(a, Velociraptor)])
-        g_count = len([a for a in self.model.agents if isinstance(a, GrassAgent) and a.energy > 0])
+        total_dinos = tri_count + gal_count + trex_count + vel_count
 
-        stats = [
-            f"Step: {self.step_count}",
-            f"Speed: {self.speed} steps/sec",
+        if total_dinos > 40:
+            status_text = "⚠ OVERPOPULATION"
+            status_color = COLORS['containment_warning']
+        elif total_dinos < 10:
+            status_text = "⚠ CRITICAL - LOW POP"
+            status_color = COLORS['containment_breach']
+        else:
+            status_text = "✓ CONTAINMENT ACTIVE"
+            status_color = COLORS['containment_active']
+
+        status = self.font_medium.render(status_text, True, status_color)
+        status_rect = status.get_rect(center=(panel_x + self.panel_width // 2, y_offset))
+        self.screen.blit(status, status_rect)
+        y_offset += 35
+
+        # Separator
+        pygame.draw.line(self.screen, COLORS['jp_yellow'],
+                        (panel_x + 20, y_offset),
+                        (panel_x + self.panel_width - 20, y_offset), 2)
+        y_offset += 20
+
+        # === SYSTEM INFO ===
+        system_header = self.font_medium.render("SYSTEM STATUS", True, COLORS['text_highlight'])
+        self.screen.blit(system_header, (panel_x + 20, y_offset))
+        y_offset += 30
+
+        g_count = len([a for a in self.model.agents if isinstance(a, GrassAgent) and a.energy > 0])
+        agent_type = "AI (LEARNING)" if self.use_learning_agents else "TRADITIONAL"
+
+        system_stats = [
+            f"Step: {self.step_count:,}",
+            f"Speed: {self.speed}x",
+            f"Mode: {agent_type}",
             f"Status: {'PAUSED' if self.paused else 'RUNNING'}",
-            "",
-            "HERBIVORES:",
-            f"  Triceratops: {tri_count}",
-            f"  Gallimimus: {gal_count}",
-            "",
-            "CARNIVORES:",
-            f"  T-Rex: {trex_count}",
-            f"  Velociraptor: {vel_count}",
-            "",
-            f"Grass: {g_count}",
-            "",
-            f"Temperature: {self.model.temperature}C",
-            f"Rainfall: {self.model.rainfall}mm",
         ]
 
-        for stat in stats:
-            text = self.font_medium.render(stat, True, COLORS['text'])
-            self.screen.blit(text, (panel_x + 20, y_offset))
-            y_offset += 26
+        for stat in system_stats:
+            text = self.font_small.render(stat, True, COLORS['text'])
+            self.screen.blit(text, (panel_x + 25, y_offset))
+            y_offset += 20
+
+        y_offset += 10
+
+        # === POPULATION MONITORING ===
+        pop_header = self.font_medium.render("POPULATION", True, COLORS['text_highlight'])
+        self.screen.blit(pop_header, (panel_x + 20, y_offset))
+        y_offset += 30
+
+        # Herbivores section
+        herb_label = self.font_small.render("HERBIVORES:", True, COLORS['text'])
+        self.screen.blit(herb_label, (panel_x + 25, y_offset))
+        y_offset += 22
+
+        # Draw colored indicators + counts
+        pygame.draw.circle(self.screen, COLORS['triceratops'], (panel_x + 35, y_offset + 6), 5)
+        tri_text = self.font_small.render(f"Triceratops: {tri_count}", True, COLORS['text'])
+        self.screen.blit(tri_text, (panel_x + 50, y_offset))
+        y_offset += 20
+
+        pygame.draw.circle(self.screen, COLORS['gallimimus'], (panel_x + 35, y_offset + 6), 5)
+        gal_text = self.font_small.render(f"Gallimimus: {gal_count}", True, COLORS['text'])
+        self.screen.blit(gal_text, (panel_x + 50, y_offset))
+        y_offset += 25
+
+        # Carnivores section
+        carn_label = self.font_small.render("CARNIVORES:", True, COLORS['text'])
+        self.screen.blit(carn_label, (panel_x + 25, y_offset))
+        y_offset += 22
+
+        pygame.draw.circle(self.screen, COLORS['trex'], (panel_x + 35, y_offset + 6), 5)
+        trex_text = self.font_small.render(f"T-Rex: {trex_count}", True, COLORS['text'])
+        self.screen.blit(trex_text, (panel_x + 50, y_offset))
+        y_offset += 20
+
+        pygame.draw.circle(self.screen, COLORS['velociraptor'], (panel_x + 35, y_offset + 6), 5)
+        vel_text = self.font_small.render(f"Velociraptor: {vel_count}", True, COLORS['text'])
+        self.screen.blit(vel_text, (panel_x + 50, y_offset))
+        y_offset += 25
+
+        # Environment
+        env_label = self.font_small.render("ENVIRONMENT:", True, COLORS['text'])
+        self.screen.blit(env_label, (panel_x + 25, y_offset))
+        y_offset += 22
+
+        pygame.draw.rect(self.screen, COLORS['grass_full'], (panel_x + 30, y_offset + 3, 10, 10))
+        grass_text = self.font_small.render(f"Vegetation: {g_count}", True, COLORS['text'])
+        self.screen.blit(grass_text, (panel_x + 50, y_offset))
+        y_offset += 20
+
+        temp_text = self.font_small.render(f"Temp: {self.model.temperature}°C", True, COLORS['text'])
+        self.screen.blit(temp_text, (panel_x + 50, y_offset))
+        y_offset += 18
+
+        rain_text = self.font_small.render(f"Rainfall: {self.model.rainfall}mm", True, COLORS['text'])
+        self.screen.blit(rain_text, (panel_x + 50, y_offset))
+        y_offset += 20
 
         # Separator
         y_offset += 10
@@ -323,7 +612,8 @@ class JurassicParkViz:
         legend_y = 10
 
         # Semi-transparent background (larger for more species)
-        legend_surface = pygame.Surface((200, 170))
+        legend_height = 190 if self.use_learning_agents else 170
+        legend_surface = pygame.Surface((200, legend_height))
         legend_surface.set_alpha(220)
         legend_surface.fill(COLORS['panel'])
         self.screen.blit(legend_surface, (legend_x, legend_y))
@@ -341,16 +631,45 @@ class JurassicParkViz:
             ("Velociraptor", COLORS['velociraptor'], 'circle'),
         ]
 
+        if self.use_learning_agents:
+            legend_items.append(("AI Agent (ring)", (255, 255, 255), 'ring'))
+
         y = legend_y + 30
         for label, color, shape in legend_items:
             if shape == 'circle':
                 pygame.draw.circle(self.screen, color, (legend_x + 15, y + 8), 6)
+            elif shape == 'ring':
+                pygame.draw.circle(self.screen, (100, 100, 100), (legend_x + 15, y + 8), 6)  # Inner circle
+                pygame.draw.circle(self.screen, color, (legend_x + 15, y + 8), 6, 2)  # White ring
             else:
                 pygame.draw.rect(self.screen, color, (legend_x + 10, y + 3, 12, 12))
 
             text = self.font_small.render(label, True, COLORS['text'])
             self.screen.blit(text, (legend_x + 35, y))
             y += 20
+
+    def draw_environmental_effects(self):
+        """Draw weather effects (rain, heat)"""
+        if not self.model:
+            return
+
+        # Rain effect when rainfall is high
+        if self.model.rainfall > 120:
+            import random
+            rain_surface = pygame.Surface((self.grid_width, self.grid_height), pygame.SRCALPHA)
+            # Draw rain drops
+            for _ in range(int(self.model.rainfall / 3)):
+                x = random.randint(0, self.grid_width)
+                y = random.randint(0, self.grid_height)
+                pygame.draw.line(rain_surface, (100, 150, 200, 100), (x, y), (x + 2, y + 5), 1)
+            self.screen.blit(rain_surface, (0, 0))
+
+        # Heat shimmer when temperature is high
+        if self.model.temperature > 32:
+            heat_surface = pygame.Surface((self.grid_width, self.grid_height), pygame.SRCALPHA)
+            heat_alpha = min(80, int((self.model.temperature - 32) * 5))
+            heat_surface.fill((255, 100, 50, heat_alpha))
+            self.screen.blit(heat_surface, (0, 0))
 
     def run(self):
         """Main game loop - runs at 60 FPS!"""
@@ -366,6 +685,7 @@ class JurassicParkViz:
             # Draw everything
             self.screen.fill(COLORS['background'])
             self.draw_grid()
+            self.draw_environmental_effects()  # Add weather overlays
             self.draw_panel()
             self.draw_legend()
 
@@ -378,8 +698,19 @@ class JurassicParkViz:
 
 
 if __name__ == "__main__":
-    print("Starting Jurassic Park Simulation...")
-    print("Controls: SPACE=pause, R=reset, UP/DOWN=speed, ESC=quit")
+    import sys
 
-    viz = JurassicParkViz(width=50, height=50, cell_size=12)
+    # Check for --learning-agents flag
+    use_learning = '--learning-agents' in sys.argv or '--ai' in sys.argv
+
+    print("Starting Jurassic Park Simulation...")
+    if use_learning:
+        print("Mode: AI Learning Agents 🧠")
+    else:
+        print("Mode: Traditional Agents")
+        print("  (use --learning-agents or --ai to enable AI agents)")
+    print("Controls: SPACE=pause, R=reset, UP/DOWN=speed, ESC=quit")
+    print()
+
+    viz = JurassicParkViz(width=50, height=50, cell_size=12, use_learning_agents=use_learning)
     viz.run()
