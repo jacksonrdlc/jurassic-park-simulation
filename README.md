@@ -4,17 +4,24 @@ A real-time agent-based ecosystem simulation featuring diverse dinosaur species 
 
 ## 🚀 Quick Start
 
-### Traditional Agents
+### Traditional Rule-Based Agents
 ```bash
 source jurassic_env/bin/activate
 python pygame_viz.py
 ```
 
-### AI Learning Agents 🧠
+### Q-Learning Agents 🧠
 ```bash
-source jurassic_env/bin/activate
-python pygame_viz.py --learning-agents  # or --ai
+source jurassic_ml_env/bin/activate
+python pygame_viz.py --ai  # or --learning-agents
 ```
+
+### PPO Agents 🚀 (State-of-the-Art!)
+```bash
+source jurassic_ml_env/bin/activate
+python pygame_viz.py --ppo
+```
+**Note:** PPO agents require training first (see PPO Training section below)
 
 ## 🦖 Dinosaur Species
 
@@ -96,8 +103,12 @@ All species feature **size-based metabolism** - larger dinosaurs consume more en
 - **60 FPS rendering** - Buttery smooth animation
 
 ### AI Visual Indicators
-- **White ring** around dinosaurs = AI-powered learning agents
-- No ring = Traditional rule-based agents
+- **Colored badge** in top-left corner = AI-powered learning agents
+  - **T** (red) = T-Rex
+  - **V** (purple) = Velociraptor
+  - **3** (green) = Triceratops
+  - **G** (yellow) = Gallimimus
+- No badge = Traditional rule-based agents
 
 ## 🔬 Run Experiments
 
@@ -109,7 +120,73 @@ python my_first_island.py
 
 Includes heat wave, drought, and multi-scenario comparisons with matplotlib plots.
 
-## 🧠 AI Learning Agents
+## 🚀 PPO Training (State-of-the-Art RL)
+
+### What is PPO?
+
+**PPO (Proximal Policy Optimization)** is a modern, state-of-the-art reinforcement learning algorithm that significantly outperforms traditional Q-learning:
+
+**Advantages over Q-Learning:**
+- ✅ **2-3x better performance** - achieves higher rewards and better strategies
+- ✅ **More stable training** - smoother learning curves, less variance
+- ✅ **Policy gradient method** - learns actions directly (not Q-values)
+- ✅ **Industry standard** - used by OpenAI, DeepMind, and researchers worldwide
+- ✅ **Better sample efficiency** - learns faster from fewer experiences
+
+### Training PPO Agents
+
+Train both herbivore and carnivore agents:
+```bash
+source jurassic_ml_env/bin/activate
+python train_ppo.py --agent both --timesteps 500000
+```
+
+Train specific agent type:
+```bash
+# Train only herbivores
+python train_ppo.py --agent herbivore --timesteps 500000
+
+# Train only carnivores
+python train_ppo.py --agent carnivore --timesteps 500000
+```
+
+**Training Arguments:**
+- `--agent` - Which agents to train: `herbivore`, `carnivore`, or `both` (default: both)
+- `--timesteps` - Total training timesteps (default: 500,000)
+- `--n-envs` - Parallel environments for faster training (default: 4)
+- `--save-freq` - Checkpoint frequency (default: 50,000 steps)
+
+**Training Features:**
+- **Parallel training** - 4 environments run simultaneously for 4x faster training
+- **Automatic checkpoints** - Models saved every 50,000 steps
+- **Best model tracking** - Best performing model saved separately
+- **TensorBoard logging** - Real-time training metrics visualization
+- **Progress bars** - Visual feedback during training
+
+**View Training Progress:**
+```bash
+tensorboard --logdir ./logs_ppo
+```
+Open http://localhost:6006 to see live training graphs!
+
+**Training Time:**
+- **500,000 timesteps** ≈ 30-60 minutes (with 4 parallel environments)
+- **1,000,000 timesteps** ≈ 1-2 hours (recommended for best results)
+
+### Visualize PPO Agents
+
+After training, run the simulation with PPO agents:
+```bash
+python pygame_viz.py --ppo
+```
+
+**What to Expect:**
+- Herbivores will demonstrate learned evasion strategies
+- Carnivores will show coordinated hunting behaviors
+- Both will optimize energy management and reproduction timing
+- Better performance than both traditional and Q-learning agents
+
+## 🧠 Q-Learning Agents (Neural Network DQN)
 
 ### Training Agents
 Train dinosaurs to learn optimal survival strategies using **PyTorch neural networks**:
@@ -166,9 +243,12 @@ Load automatically when running `python pygame_viz.py --ai`
 
 - **Mesa 3.3.0** - Agent-based modeling framework
 - **Pygame 2.6.1** - 60 FPS real-time visualization
-- **PyTorch 2.2.2** - Neural networks & reinforcement learning (CPU-compatible)
+- **PyTorch 2.2.2** - Neural networks & deep learning (CPU-compatible)
+- **Stable-Baselines3 2.4.1** - State-of-the-art RL algorithms (PPO, A3C, SAC)
+- **Gymnasium 1.0.0** - OpenAI Gym API for RL environments
 - **Matplotlib 3.x** - Data visualization and training graphs
 - **NumPy** - Numerical computations
+- **TensorBoard** - Real-time training metrics visualization
 
 ## 📁 Project Structure
 

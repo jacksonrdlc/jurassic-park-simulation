@@ -61,7 +61,7 @@ COLORS = {
 }
 
 class JurassicParkViz:
-    def __init__(self, width=50, height=50, cell_size=16, use_learning_agents=False):  # INCREASED from 12 to 16
+    def __init__(self, width=50, height=50, cell_size=20, use_learning_agents=False, use_ppo_agents=False):  # INCREASED from 16 to 20 for better visibility
         pygame.init()
 
         # Model parameters
@@ -69,6 +69,7 @@ class JurassicParkViz:
         self.model_height = height
         self.cell_size = cell_size
         self.use_learning_agents = use_learning_agents
+        self.use_ppo_agents = use_ppo_agents
 
         # Window dimensions
         self.grid_width = width * cell_size
@@ -111,12 +112,24 @@ class JurassicParkViz:
             num_carnivores=5,
             temperature=25,
             rainfall=100,
-            use_learning_agents=self.use_learning_agents
+            use_learning_agents=self.use_learning_agents,
+            use_ppo_agents=self.use_ppo_agents
         )
         self.step_count = 0
 
-        # Load trained models if using learning agents
-        if self.use_learning_agents:
+        # Load trained PPO models if using PPO agents
+        if self.use_ppo_agents:
+            import os
+            if os.path.exists('models_ppo/herbivore_ppo_final.zip') and os.path.exists('models_ppo/carnivore_ppo_final.zip'):
+                from ppo_agents import PPOHerbivoreAgent, PPOCarnivoreAgent
+                # Load PPO models
+                PPOHerbivoreAgent.load_model('models_ppo/herbivore_ppo_final.zip')
+                PPOCarnivoreAgent.load_model('models_ppo/carnivore_ppo_final.zip')
+            else:
+                print("⚠️  PPO models not found! Please train them first with:")
+                print("   python train_ppo.py")
+        # Load trained models if using Q-learning agents
+        elif self.use_learning_agents:
             import os
             if os.path.exists('models/herbivore_final.pth'):
                 import torch
@@ -133,7 +146,7 @@ class JurassicParkViz:
                 LearningCarnivoreAgent.training_mode = False
                 LearningHerbivoreAgent.epsilon = 0.0
                 LearningCarnivoreAgent.epsilon = 0.0
-                print("✅ Loaded trained PyTorch models for visualization")
+                print("✅ Loaded trained PyTorch Q-learning models for visualization")
 
     def handle_events(self):
         """Handle keyboard/mouse events"""
@@ -224,6 +237,36 @@ class JurassicParkViz:
         outline_color = tuple(max(0, c - 40) for c in color)
         pygame.draw.polygon(self.screen, outline_color, rotated_points, 2)
 
+    def draw_ai_indicator(self, rect, species_name):
+        """Draw species-specific symbol for AI agents in top-left corner"""
+        # Map species to colored symbols/letters
+        symbol_map = {
+            'TRex': ('T', (255, 100, 100)),        # Red T for T-Rex
+            'Velociraptor': ('V', (200, 150, 255)),  # Purple V for Velociraptor
+            'Triceratops': ('3', (150, 255, 150)),   # Green 3 for Triceratops
+            'Gallimimus': ('G', (255, 255, 150)),    # Yellow G for Gallimimus
+            'CarnivoreAgent': ('C', (255, 100, 100)),
+            'HerbivoreAgent': ('H', (150, 255, 150))
+        }
+
+        symbol, color = symbol_map.get(species_name, ('A', (255, 255, 255)))
+
+        # Draw a small circle background
+        badge_center = (rect.left + int(self.cell_size * 0.2), rect.top + int(self.cell_size * 0.2))
+        badge_radius = int(self.cell_size * 0.18)
+
+        # Draw circle background (slightly transparent dark circle)
+        circle_surface = pygame.Surface((badge_radius * 2 + 2, badge_radius * 2 + 2), pygame.SRCALPHA)
+        pygame.draw.circle(circle_surface, (0, 0, 0, 180), (badge_radius + 1, badge_radius + 1), badge_radius)
+        pygame.draw.circle(circle_surface, color, (badge_radius + 1, badge_radius + 1), badge_radius, 2)  # Colored outline
+        self.screen.blit(circle_surface, (badge_center[0] - badge_radius - 1, badge_center[1] - badge_radius - 1))
+
+        # Draw the symbol/letter
+        symbol_font = pygame.font.Font(None, int(self.cell_size * 0.8))
+        symbol_surface = symbol_font.render(symbol, True, color)
+        symbol_rect = symbol_surface.get_rect(center=badge_center)
+        self.screen.blit(symbol_surface, symbol_rect)
+
     def draw_movement_trail(self, agent):
         """Draw fading trail showing recent movement"""
         if not hasattr(agent, 'movement_history') or not agent.movement_history:
@@ -308,15 +351,9 @@ class JurassicParkViz:
                         # Draw directional sprite
                         direction = getattr(agent, 'direction', (1, 0))
                         self.draw_directional_sprite(rect, color, direction, 0.45, is_carnivore=True)
-                        # Draw AI indicator (white ring)
+                        # Draw AI indicator (emoji)
                         if is_learning_agent:
-                            pygame.draw.circle(
-                                self.screen,
-                                (255, 255, 255),
-                                rect.center,
-                                int(self.cell_size * 0.45),
-                                2  # Ring thickness
-                            )
+                            self.draw_ai_indicator(rect, 'TRex')
                         drawn_agent = agent
                         break
                     elif isinstance(agent, Velociraptor):
@@ -325,8 +362,7 @@ class JurassicParkViz:
                         direction = getattr(agent, 'direction', (1, 0))
                         self.draw_directional_sprite(rect, color, direction, 0.4, is_carnivore=True)
                         if is_learning_agent:
-                            pygame.draw.circle(self.screen, (255, 255, 255),
-                                             rect.center, int(self.cell_size * 0.4), 2)
+                            self.draw_ai_indicator(rect, 'Velociraptor')
                         drawn_agent = agent
                         break
                     elif isinstance(agent, Triceratops):
@@ -335,8 +371,7 @@ class JurassicParkViz:
                         direction = getattr(agent, 'direction', (1, 0))
                         self.draw_directional_sprite(rect, color, direction, 0.35, is_carnivore=False)
                         if is_learning_agent:
-                            pygame.draw.circle(self.screen, (255, 255, 255),
-                                             rect.center, int(self.cell_size * 0.35), 2)
+                            self.draw_ai_indicator(rect, 'Triceratops')
                         drawn_agent = agent
                         break
                     elif isinstance(agent, Gallimimus):
@@ -345,8 +380,7 @@ class JurassicParkViz:
                         direction = getattr(agent, 'direction', (1, 0))
                         self.draw_directional_sprite(rect, color, direction, 0.3, is_carnivore=False)
                         if is_learning_agent:
-                            pygame.draw.circle(self.screen, (255, 255, 255),
-                                             rect.center, int(self.cell_size * 0.3), 2)
+                            self.draw_ai_indicator(rect, 'Gallimimus')
                         drawn_agent = agent
                         break
                     elif isinstance(agent, CarnivoreAgent):
@@ -355,8 +389,7 @@ class JurassicParkViz:
                         direction = getattr(agent, 'direction', (1, 0))
                         self.draw_directional_sprite(rect, color, direction, 0.4, is_carnivore=True)
                         if is_learning_agent:
-                            pygame.draw.circle(self.screen, (255, 255, 255),
-                                             rect.center, int(self.cell_size * 0.4), 2)
+                            self.draw_ai_indicator(rect, 'CarnivoreAgent')
                         drawn_agent = agent
                         break
                     elif isinstance(agent, HerbivoreAgent):
@@ -365,8 +398,7 @@ class JurassicParkViz:
                         direction = getattr(agent, 'direction', (1, 0))
                         self.draw_directional_sprite(rect, color, direction, 0.3, is_carnivore=False)
                         if is_learning_agent:
-                            pygame.draw.circle(self.screen, (255, 255, 255),
-                                             rect.center, int(self.cell_size * 0.3), 2)
+                            self.draw_ai_indicator(rect, 'HerbivoreAgent')
                         drawn_agent = agent
                         break
                     elif isinstance(agent, GrassAgent):
@@ -700,17 +732,24 @@ class JurassicParkViz:
 if __name__ == "__main__":
     import sys
 
-    # Check for --learning-agents flag
-    use_learning = '--learning-agents' in sys.argv or '--ai' in sys.argv
+    # Check for agent type flags
+    use_ppo = '--ppo' in sys.argv
+    use_learning = ('--learning-agents' in sys.argv or '--ai' in sys.argv) and not use_ppo
 
     print("Starting Jurassic Park Simulation...")
-    if use_learning:
-        print("Mode: AI Learning Agents 🧠")
+    if use_ppo:
+        print("Mode: PPO Agents (Proximal Policy Optimization) 🚀")
+        print("  State-of-the-art reinforcement learning!")
+    elif use_learning:
+        print("Mode: Q-Learning Agents 🧠")
+        print("  Neural network Q-learning")
     else:
-        print("Mode: Traditional Agents")
-        print("  (use --learning-agents or --ai to enable AI agents)")
+        print("Mode: Traditional Rule-Based Agents")
+        print("  (use --ppo for PPO agents, --ai for Q-learning agents)")
     print("Controls: SPACE=pause, R=reset, UP/DOWN=speed, ESC=quit")
     print()
 
-    viz = JurassicParkViz(width=50, height=50, cell_size=12, use_learning_agents=use_learning)
+    viz = JurassicParkViz(width=50, height=50, cell_size=24,
+                          use_learning_agents=use_learning,
+                          use_ppo_agents=use_ppo)
     viz.run()

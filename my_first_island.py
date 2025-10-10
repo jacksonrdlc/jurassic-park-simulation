@@ -234,7 +234,7 @@ class IslandModel(Model):
     """The island ecosystem with environmental variables"""
     def __init__(self, width=50, height=50,
                  num_herbivores=20, num_carnivores=10,  # INCREASED from 5 to 10
-                 temperature=25, rainfall=100, use_learning_agents=False):
+                 temperature=25, rainfall=100, use_learning_agents=False, use_ppo_agents=False):
         super().__init__()
         self.grid = MultiGrid(width, height, torus=True)
         # Note: Mesa 3.x doesn't need a separate scheduler
@@ -252,6 +252,7 @@ class IslandModel(Model):
 
         # Learning agent settings
         self.use_learning_agents = use_learning_agents
+        self.use_ppo_agents = use_ppo_agents
 
         # Event log for visualization
         self.event_log = []
@@ -287,8 +288,12 @@ class IslandModel(Model):
                 self.grid.place_agent(grass, (x, y))
 
         # Add herbivores (mix of Triceratops and Gallimimus)
-        if self.use_learning_agents:
-            # Import learning agents only when needed
+        if self.use_ppo_agents:
+            # Import PPO agents
+            from ppo_agents import PPOTriceratops, PPOGallimimus
+            herbivore_species = [PPOTriceratops, PPOGallimimus]
+        elif self.use_learning_agents:
+            # Import Q-learning agents
             from learning_agents import LearningTriceratops, LearningGallimimus
             herbivore_species = [LearningTriceratops, LearningGallimimus]
         else:
@@ -302,7 +307,10 @@ class IslandModel(Model):
             self.grid.place_agent(herbivore, (x, y))
 
         # Add carnivores (mix of TRex and Velociraptor)
-        if self.use_learning_agents:
+        if self.use_ppo_agents:
+            from ppo_agents import PPOTRex, PPOVelociraptor
+            carnivore_species = [PPOTRex, PPOVelociraptor]
+        elif self.use_learning_agents:
             from learning_agents import LearningTRex, LearningVelociraptor
             carnivore_species = [LearningTRex, LearningVelociraptor]
         else:
