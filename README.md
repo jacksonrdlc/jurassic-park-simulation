@@ -1,27 +1,28 @@
 # 🦕 Jurassic Park Ecosystem Simulation
 
-A real-time agent-based ecosystem simulation featuring diverse dinosaur species with unique behaviors, environmental dynamics, predator-prey interactions, and **AI learning agents powered by PyTorch**. Complete with Jurassic Park-themed UI, directional sprites, movement trails, and dynamic weather effects.
+A real-time agent-based ecosystem simulation featuring diverse dinosaur species with unique behaviors, environmental dynamics, predator-prey interactions, and **AI learning agents powered by PyTorch**. Complete with Jurassic Park-themed UI, **authentic pixel art sprites**, movement trails, widescreen viewport with camera exploration, and dynamic weather effects on a massive procedurally-generated island.
 
 ## 🚀 Quick Start
 
-### Traditional Rule-Based Agents
+### New Modular Version (Recommended) 🏗️
 ```bash
 source jurassic_env/bin/activate
-python pygame_viz.py
+python run_game.py              # Traditional agents
+python run_game.py --ai         # Q-learning agents
+python run_game.py --ppo        # PPO agents
 ```
 
-### Q-Learning Agents 🧠
+### Legacy Version (Backwards Compatible)
 ```bash
-source jurassic_ml_env/bin/activate
-python pygame_viz.py --ai  # or --learning-agents
+source jurassic_env/bin/activate
+python pygame_viz.py            # Traditional agents
+python pygame_viz.py --ai       # Q-learning agents
+python pygame_viz.py --ppo      # PPO agents
 ```
 
-### PPO Agents 🚀 (State-of-the-Art!)
-```bash
-source jurassic_ml_env/bin/activate
-python pygame_viz.py --ppo
-```
 **Note:** PPO agents require training first (see PPO Training section below)
+
+**New!** The project now uses a modular architecture following pygame best practices. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 
 ## 🦖 Dinosaur Species
 
@@ -56,14 +57,94 @@ All species feature **size-based metabolism** - larger dinosaurs consume more en
 
 ## 🎮 Controls
 
+### Navigation
+- **Left/Right/Up/Down Arrows** - Pan camera around the vast island
+- **Left Click + Drag** - Pan camera by dragging the view
+- **Right Click** - Center camera on clicked location
+- **M** - Toggle minimap on/off
+
+### Simulation
 - **SPACE** - Pause/Play simulation
-- **R** - Reset simulation (new random world)
-- **UP Arrow** - Increase speed (max 60x)
-- **DOWN Arrow** - Decrease speed (min 1x)
+- **R** - Reset simulation (generates new random island)
 - **ESC** - Quit application
+
+## 🏝️ Island World
+
+Experience a **625x375 cell Costa Rican island** with diverse terrain, animated water, day/night cycles, and smooth camera exploration!
+
+### Terrain Types
+- **Ocean** 🌊 - Deep blue waters surrounding the island (impassable)
+- **Beach** 🏖️ - Sandy tan shores at the water's edge
+- **Sand** 🏝️ - Light sand transition zones
+- **Grassland** 🌿 - Vibrant green plains (optimal for dinosaurs)
+- **Forest** 🌲 - Medium green wooded areas
+- **Rainforest** 🌴 - Dense dark green jungle
+- **River** 💧 - Light blue flowing water (impassable)
+- **Mountain** ⛰️ - Gray-brown elevated terrain (slows movement)
+- **Volcano** 🌋 - Dark volcanic peak at island center
+
+### Procedural Generation
+- **Perlin noise terrain** - Natural-looking heightmaps with 4 octaves
+- **Island shape masking** - Falloff curves create realistic coastlines
+- **Volcanic peak** - Central mountain with gentle slopes
+- **River systems** - Water flows downhill from mountains to ocean
+- **Terrain smoothing** - Removes single-cell anomalies for realistic transitions
+- **Unique every run** - Each reset generates a new random island
+
+### Camera System
+- **Widescreen viewport** - 1600x900 pixels (~50x28 cells visible at once)
+- **Large view area** - See most of the 625x375 cell island at once
+- **Smooth panning** - Arrow keys or drag to explore the island
+- **Minimap** - Bottom-left overlay shows full island with yellow viewport indicator
+- **Coordinate grid** - A-Z columns, numbered rows for sector tracking
+- **Follow action** - Right-click to center camera on any location
+
+### Terrain-Based Movement
+- **Walkable/Impassable** - Dinosaurs avoid ocean and rivers
+- **Movement costs** - Mountains slow down movement (future enhancement)
+- **Strategic spawning** - Dinosaurs spawn on grassland/forest areas
+- **Grass placement** - Vegetation only grows on suitable land
+
+### ✨ Visual Polish
+
+**Animated Water** 🌊
+- Sine wave effects create realistic ocean movement
+- Shimmer highlights on wave peaks
+- Rivers flow with gentle animation
+- Dynamic brightness changes based on waves
+
+**Day/Night Cycle** 🌙☀️
+- Full 24-hour light cycle (sped up for viewing)
+- Midnight → Sunrise → Noon → Sunset → Midnight
+- Dark blue tint increases at night
+- Automatic time progression
+
+**Volcano Effects** 🌋
+- Rising smoke/steam particles from volcanic peaks
+- Gray smoke with fading alpha
+- Particles drift upward and dissipate
+- Only visible volcanoes spawn smoke (optimization)
+
+**Authentic Pixel Art Sprites** 🦖
+- Custom 16x16 dinosaur sprites from retro sprite sheet
+- Dynamic rotation based on movement direction
+- Species-specific scaling (T-Rex 3.0x, Triceratops 2.5x, Velociraptor 2.5x, Gallimimus 2.0x, Brachiosaurus 2.5x)
+- **Earthy color tints** - Browns, tans, and natural colors (not green!)
+- Smooth movement trails showing last 3 positions
+- High-quality pixel art spanning multiple cells for visibility
+
+**Balanced Population** 🎯
+- **125 herbivores** across the island
+- **50 carnivores** hunting territory
+- **~25,000 grass tiles** on suitable terrain
+- **~234,000 total cells** in the world
 
 ## 🌍 Ecosystem Mechanics
 
+- **Goal-Oriented Behavior** - NEW! Dinosaurs actively seek food and prey
+  - **Herbivores** search for grass within 10-cell vision radius
+  - **Carnivores** hunt prey within 15-cell vision radius
+  - Random exploration when no targets visible
 - **Size-Based Metabolism** - Larger dinosaurs burn more energy per step
 - **Defense System** - Herbivores can survive attacks (Triceratops 50%, Gallimimus 30%)
 - **Speed-Based Movement** - Gallimimus moves 3 cells/step, others 1-2
@@ -73,21 +154,34 @@ All species feature **size-based metabolism** - larger dinosaurs consume more en
   - **Rainfall** - Affects grass regrowth rate (more rain = faster growth)
 - **Energy System** - Agents must eat to survive, maintain energy above 0
 - **Reproduction** - Agents reproduce when energy is high (thresholds vary by species)
-- **Balanced Ecosystem** - 20 herbivores, 10 carnivores for sustainable populations
+- **Balanced Ecosystem** - 125 herbivores, 50 carnivores spread across the island
 
 ## 🎨 Jurassic Park UI Features
 
 ### Visual Elements
-- **1250x800 HD window** - Large, detailed view (16px cells)
+- **2050x900 widescreen window** - Large viewport (1600x900) + info panel (450px)
+- **625x375 cell world** - Explore via smooth camera scrolling
+- **16px cell rendering** - ~100x56 cells visible at once (zoomed-in terrain detail!)
+- **Tree sprites** - Forests and rainforests feature procedural tree sprites
 - **Jurassic Park branding** - Iconic yellow/black color scheme
 - **"ISLA NUBLAR - SECTOR 7G"** subtitle with warning stripes
 - **Containment status** - Green (safe), Yellow (overpopulation), Red (critical)
 
-### Directional Sprites
-- **Triangle sprites** pointing in movement direction
-- **Species-specific sizes** - T-Rex largest, Gallimimus smallest
+### Authentic Dinosaur Sprites
+- **Pixel art sprites** from custom sprite sheet (`dino_sprites/` folder)
+- **Dynamic rotation** - Sprites automatically rotate to face movement direction
+- **Animation on movement** - Walking animations play ONLY when dinosaurs move
+- **Earthy color tints** - Browns, tans, and natural colors applied to each species
+- **Species-specific artwork**:
+  - T-Rex: TyrannosaurusRex_16x16.png (scaled 1.8x, blood red-brown tint)
+  - Triceratops: Triceratops_16x16.png (scaled 1.5x, earthy tan tint)
+  - Velociraptor: Spinosaurus_16x16.png (scaled 1.5x, dark brown tint)
+  - Gallimimus: Parasaurolophus_16x16.png (scaled 1.2x, tan/beige tint)
+  - Brachiosaurus: Brachiosaurus_32x32.png (scaled 1.5x, warm tan tint)
+  - Stegosaurus: Stegosaurus_32x32.png (scaled 1.2x, brown tint)
 - **Movement trails** - Fading ghost images showing last 3 positions
-- **Dark outlines** for better visibility
+- **Smooth rendering** with pygame transform operations
+- **Proportional sizing** - Dinosaurs properly scaled relative to 16px terrain cells
 
 ### Environmental Effects
 - **Procedural terrain** - Each grass tile has unique color variation
@@ -250,29 +344,71 @@ Load automatically when running `python pygame_viz.py --ai`
 - **NumPy** - Numerical computations
 - **TensorBoard** - Real-time training metrics visualization
 
+## 🎨 Sprite Attribution
+
+Dinosaur sprites located in `dino_sprites/` folder:
+- 16x16 pixel art dinosaur sprites
+- Dynamically scaled and rotated during gameplay
+- See `dino_sprites/README.md` for sprite specifications
+
 ## 📁 Project Structure
 
 ```
 jurassic-park-simulation/
+├── src/                        # Modular source code (NEW! 🏗️)
+│   ├── config/                 # Configuration
+│   │   ├── colors.py           # Color scheme
+│   │   └── settings.py         # Game constants
+│   ├── entities/               # Game entities
+│   │   ├── dinosaur_sprite.py  # Sprite rendering
+│   │   └── particle.py         # Particle system
+│   ├── rendering/              # Rendering modules
+│   │   ├── terrain_renderer.py # Terrain & agents
+│   │   ├── ui_renderer.py      # UI & panels
+│   │   └── effects_renderer.py # Weather & effects
+│   └── managers/               # Game management
+│       ├── game_manager.py     # Main game loop
+│       └── event_manager.py    # Input handling
+│
+├── run_game.py                 # New modular entry point
+├── pygame_viz.py               # Legacy monolithic version
 ├── my_first_island.py          # Core ecosystem model
-├── pygame_viz.py               # Jurassic Park UI visualization
-├── learning_agents.py          # PyTorch neural network agents
-├── train_agents.py             # Training script for AI agents
+├── terrain_generator.py        # Procedural island generation
+├── camera.py                   # Viewport/camera system
+├── dino_sprites/               # Dinosaur sprite artwork
+│   ├── TyrannosaurusRex_16x16.png
+│   ├── Triceratops_16x16.png
+│   ├── Spinosaurus_16x16.png
+│   ├── Parasaurolophus_16x16.png
+│   └── ...                     # Additional sprite artwork
+├── learning_agents.py          # PyTorch Q-learning agents
+├── ppo_agents.py               # PPO reinforcement learning agents
+├── ppo_env.py                  # Gymnasium environments for PPO
+├── train_agents.py             # Q-learning training script
+├── train_ppo.py                # PPO training script
 ├── compare_agents.py           # Performance comparison tool
 ├── models/                     # Saved neural network weights
-│   ├── herbivore_final.pth
-│   └── carnivore_final.pth
+│   ├── herbivore_final.pth     # Q-learning herbivore
+│   ├── carnivore_final.pth     # Q-learning carnivore
+│   ├── ppo_herbivore_best.zip  # PPO herbivore
+│   └── ppo_carnivore_best.zip  # PPO carnivore
 ├── jurassic_env/              # Python 3.13 environment
 ├── jurassic_ml_env/           # Python 3.11 ML environment
-└── README.md                  # This file
+├── README.md                  # This file
+└── ARCHITECTURE.md            # Architecture documentation
 ```
+
+**See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed module descriptions and design principles.**
 
 ## 🎯 Learning Objectives
 
 This simulation teaches:
-- **Agent-based modeling** - Complex systems from simple rules
-- **Reinforcement learning** - Q-learning, experience replay, epsilon-greedy
-- **Neural networks** - PyTorch implementation, training loops
+- **Agent-based modeling** - Complex systems emerge from simple rules
+- **Reinforcement learning** - PPO (state-of-the-art), Q-learning, experience replay
+- **Neural networks** - PyTorch implementation, training loops, model evaluation
+- **Procedural generation** - Perlin noise, heightmaps, terrain systems
+- **Game development** - Camera systems, viewport rendering, minimap design
 - **Ecosystem dynamics** - Predator-prey balance, population oscillations
-- **Emergent behavior** - Strategies develop from reward signals
-- **System optimization** - Debugging, performance, hardware compatibility
+- **Emergent behavior** - Strategies develop from environmental constraints
+- **Spatial optimization** - Culling, coordinate transformation, efficient rendering
+- **System design** - Modular architecture, backward compatibility

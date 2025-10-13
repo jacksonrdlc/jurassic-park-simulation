@@ -41,17 +41,70 @@ class HerbivoreAgent(Agent):
         self.size_metabolism = 1.0  # Size-based energy consumption multiplier
         self.direction = (1, 0)  # Direction facing (dx, dy)
         self.movement_history = []  # Track recent positions for trails
+        self.is_moving = False  # Track if agent moved this step
+
+    def is_walkable(self, pos):
+        """Check if a position is walkable based on terrain"""
+        if self.model.terrain_map is None:
+            return True  # No terrain restrictions
+
+        from terrain_generator import TerrainType, TERRAIN_WALKABLE
+        x, y = pos
+        terrain_type = TerrainType(self.model.terrain_map[y, x])
+        return TERRAIN_WALKABLE[terrain_type]
+
+    def find_nearest_grass(self):
+        """Find nearest grass within vision range"""
+        search_radius = 10  # Can see 10 cells away
+        neighborhood = self.model.grid.get_neighborhood(
+            self.pos, moore=True, include_center=True, radius=search_radius
+        )
+
+        # Find grass patches with energy
+        grass_locations = []
+        for pos in neighborhood:
+            cell_contents = self.model.grid.get_cell_list_contents([pos])
+            for agent in cell_contents:
+                if isinstance(agent, GrassAgent) and agent.energy > 0:
+                    grass_locations.append(pos)
+                    break
+
+        if grass_locations:
+            # Find closest grass
+            closest_grass = min(grass_locations,
+                              key=lambda pos: abs(pos[0] - self.pos[0]) + abs(pos[1] - self.pos[1]))
+            return closest_grass
+        return None
 
     def step(self):
         # Move (speed determines how many cells to move)
         old_pos = self.pos
         current_pos = self.pos
+
+        # Look for nearby grass to move towards
+        target_grass = self.find_nearest_grass()
+
         for _ in range(self.speed):
             possible_steps = self.model.grid.get_neighborhood(
                 current_pos, moore=True, include_center=False
             )
-            new_position = self.random.choice(possible_steps)
-            current_pos = new_position
+            # Filter out non-walkable terrain
+            walkable_steps = [pos for pos in possible_steps if self.is_walkable(pos)]
+
+            if walkable_steps:
+                # If we see grass, move towards it
+                if target_grass:
+                    # Calculate which step gets us closer to grass
+                    best_step = min(walkable_steps,
+                                   key=lambda pos: abs(pos[0] - target_grass[0]) + abs(pos[1] - target_grass[1]))
+                    current_pos = best_step
+                else:
+                    # Random walk if no grass visible
+                    new_position = self.random.choice(walkable_steps)
+                    current_pos = new_position
+            else:
+                # No walkable positions, stay in place
+                break
 
         # Track movement history for trails
         self.movement_history.append(old_pos)
@@ -59,7 +112,8 @@ class HerbivoreAgent(Agent):
             self.movement_history.pop(0)
 
         # Calculate direction based on movement
-        if current_pos != old_pos:
+        self.is_moving = (current_pos != old_pos)
+        if self.is_moving:
             self.direction = (current_pos[0] - old_pos[0], current_pos[1] - old_pos[1])
 
         self.model.grid.move_agent(self, current_pos)
@@ -108,17 +162,70 @@ class CarnivoreAgent(Agent):
         self.size_metabolism = 1.0  # Size-based energy consumption multiplier
         self.direction = (1, 0)  # Direction facing (dx, dy)
         self.movement_history = []  # Track recent positions for trails
+        self.is_moving = False  # Track if agent moved this step
+
+    def is_walkable(self, pos):
+        """Check if a position is walkable based on terrain"""
+        if self.model.terrain_map is None:
+            return True  # No terrain restrictions
+
+        from terrain_generator import TerrainType, TERRAIN_WALKABLE
+        x, y = pos
+        terrain_type = TerrainType(self.model.terrain_map[y, x])
+        return TERRAIN_WALKABLE[terrain_type]
+
+    def find_nearest_prey(self):
+        """Find nearest herbivore within vision range"""
+        search_radius = 15  # Carnivores can see 15 cells away
+        neighborhood = self.model.grid.get_neighborhood(
+            self.pos, moore=True, include_center=True, radius=search_radius
+        )
+
+        # Find herbivores
+        prey_locations = []
+        for pos in neighborhood:
+            cell_contents = self.model.grid.get_cell_list_contents([pos])
+            for agent in cell_contents:
+                if isinstance(agent, HerbivoreAgent):
+                    prey_locations.append(pos)
+                    break
+
+        if prey_locations:
+            # Find closest prey
+            closest_prey = min(prey_locations,
+                             key=lambda pos: abs(pos[0] - self.pos[0]) + abs(pos[1] - self.pos[1]))
+            return closest_prey
+        return None
 
     def step(self):
         # Move (speed determines how many cells to move)
         old_pos = self.pos
         current_pos = self.pos
+
+        # Look for nearby prey to hunt
+        target_prey = self.find_nearest_prey()
+
         for _ in range(self.speed):
             possible_steps = self.model.grid.get_neighborhood(
                 current_pos, moore=True, include_center=False
             )
-            new_position = self.random.choice(possible_steps)
-            current_pos = new_position
+            # Filter out non-walkable terrain
+            walkable_steps = [pos for pos in possible_steps if self.is_walkable(pos)]
+
+            if walkable_steps:
+                # If we see prey, move towards it (hunt!)
+                if target_prey:
+                    # Calculate which step gets us closer to prey
+                    best_step = min(walkable_steps,
+                                   key=lambda pos: abs(pos[0] - target_prey[0]) + abs(pos[1] - target_prey[1]))
+                    current_pos = best_step
+                else:
+                    # Random patrol if no prey visible
+                    new_position = self.random.choice(walkable_steps)
+                    current_pos = new_position
+            else:
+                # No walkable positions, stay in place
+                break
 
         # Track movement history for trails
         self.movement_history.append(old_pos)
@@ -126,7 +233,8 @@ class CarnivoreAgent(Agent):
             self.movement_history.pop(0)
 
         # Calculate direction based on movement
-        if current_pos != old_pos:
+        self.is_moving = (current_pos != old_pos)
+        if self.is_moving:
             self.direction = (current_pos[0] - old_pos[0], current_pos[1] - old_pos[1])
 
         self.model.grid.move_agent(self, current_pos)
@@ -228,17 +336,153 @@ class Velociraptor(CarnivoreAgent):
         self.species_name = "Velociraptor"
 
 
+class Stegosaurus(HerbivoreAgent):
+    """Plated herbivore - slow but deadly tail spikes (LARGE = high metabolism)"""
+    def __init__(self, model):
+        super().__init__(model)
+        self.energy = 90
+        self.defense = 0.70  # 70% chance to survive (deadly tail spikes!)
+        self.speed = 1  # Very slow like real Stegosaurus
+        self.size_metabolism = 1.6  # LARGE dinosaur = 60% more energy consumption
+        self.species_name = "Stegosaurus"
+        self.can_counterattack = True  # Special ability!
+
+    def step(self):
+        # Check for nearby carnivores to potentially counterattack
+        if hasattr(self, 'can_counterattack') and self.can_counterattack:
+            cell_contents = self.model.grid.get_cell_list_contents([self.pos])
+            carnivores = [obj for obj in cell_contents if isinstance(obj, CarnivoreAgent)]
+            if carnivores and self.random.random() < 0.30:  # 30% chance to strike with tail
+                attacker = self.random.choice(carnivores)
+                attacker.energy -= 30  # Tail spike damage!
+                self.model.log_event("HUNT", f"⚔️ Stegosaurus counterattacked {attacker.species_name} at {self.pos}!")
+
+        # Normal herbivore behavior
+        super().step()
+
+
+class Pachycephalosaurus(HerbivoreAgent):
+    """Dome-headed herbivore - fast, territorial, can head-butt (MEDIUM metabolism)"""
+    def __init__(self, model):
+        super().__init__(model)
+        self.energy = 70
+        self.defense = 0.45  # 45% defense (head-butting, intimidation)
+        self.speed = 2  # Bipedal, fairly fast
+        self.size_metabolism = 0.9  # MEDIUM dinosaur = 10% less energy consumption
+        self.species_name = "Pachycephalosaurus"
+        self.territorial = True
+
+    def step(self):
+        # Territorial behavior - head-butt other Pachycephalosaurus
+        if self.territorial and self.random.random() < 0.05:  # 5% chance per step
+            cell_contents = self.model.grid.get_cell_list_contents([self.pos])
+            rivals = [obj for obj in cell_contents
+                     if isinstance(obj, Pachycephalosaurus) and obj != self]
+            if rivals:
+                rival = self.random.choice(rivals)
+                # Head-butt contest - both lose some energy
+                energy_loss = 10
+                self.energy -= energy_loss
+                rival.energy -= energy_loss
+                if self.random.random() < 0.3:  # 30% chance to log
+                    self.model.log_event("INFO", f"💥 Pachycephalosaurus head-butt contest at {self.pos}!")
+
+        # Normal herbivore behavior
+        super().step()
+
+
+class Brachiosaurus(HerbivoreAgent):
+    """Massive sauropod - slow, high browser, huge (VERY LARGE = very high metabolism)"""
+    def __init__(self, model):
+        super().__init__(model)
+        self.energy = 150  # Massive starting energy
+        self.defense = 0.85  # 85% defense (size intimidates predators)
+        self.speed = 1  # Very slow, cannot run
+        self.size_metabolism = 2.2  # MASSIVE dinosaur = 120% more energy consumption
+        self.species_name = "Brachiosaurus"
+        self.reproduce_threshold = 180  # Needs more energy to reproduce
+
+    def step(self):
+        # Massive size discourages weak predators
+        cell_contents = self.model.grid.get_cell_list_contents([self.pos])
+        carnivores = [obj for obj in cell_contents if isinstance(obj, CarnivoreAgent)]
+        for carnivore in carnivores:
+            # Weak carnivores won't even try to attack
+            if carnivore.energy < 50 and self.random.random() < 0.7:  # 70% chance to flee
+                # Carnivore backs off
+                if self.random.random() < 0.2:  # 20% chance to log
+                    self.model.log_event("INFO", f"🦖 {carnivore.species_name} intimidated by Brachiosaurus size at {self.pos}")
+
+        # Normal herbivore behavior
+        super().step()
+
+    def reproduce(self):
+        # Brachiosaurus needs more energy to reproduce
+        if self.energy > self.reproduce_threshold:
+            self.energy /= 2
+            baby = self.__class__(self.model)
+            self.model.grid.place_agent(baby, self.pos)
+            self.model.log_event("BIRTH", f"🦕 {self.species_name} born at {self.pos}")
+
+
+class Archeopteryx(HerbivoreAgent):
+    """Proto-bird - very fast, can glide, insectivore (VERY SMALL = low metabolism)"""
+    def __init__(self, model):
+        super().__init__(model)
+        self.energy = 30
+        self.defense = 0.15  # 15% defense (small, relies on escape)
+        self.speed = 3  # Very fast (flying/gliding)
+        self.size_metabolism = 0.5  # VERY SMALL = 50% less energy consumption
+        self.species_name = "Archeopteryx"
+        self.can_glide = True
+        self.reproduce_threshold = 40  # Low reproduction threshold
+
+    def step(self):
+        # Gliding escape mechanism when threatened
+        if self.can_glide and self.random.random() < 0.10:  # 10% chance to check
+            cell_contents = self.model.grid.get_cell_list_contents([self.pos])
+            carnivores = [obj for obj in cell_contents if isinstance(obj, CarnivoreAgent)]
+            if carnivores and self.random.random() < 0.40:  # 40% chance to glide away
+                # Glide 5 cells away in a random direction
+                glide_distance = 5
+                possible_positions = self.model.grid.get_neighborhood(
+                    self.pos, moore=True, include_center=False, radius=glide_distance
+                )
+                walkable = [pos for pos in possible_positions if self.is_walkable(pos)]
+                if walkable:
+                    glide_target = self.random.choice(walkable)
+                    self.model.grid.move_agent(self, glide_target)
+                    if self.random.random() < 0.3:  # 30% chance to log
+                        self.model.log_event("INFO", f"🦅 Archeopteryx glided to safety at {glide_target}!")
+                    return  # Skip normal movement
+
+        # Normal herbivore behavior
+        super().step()
+
+    def reproduce(self):
+        # Archeopteryx reproduces easily
+        if self.energy > self.reproduce_threshold:
+            self.energy /= 2
+            baby = self.__class__(self.model)
+            self.model.grid.place_agent(baby, self.pos)
+            self.model.log_event("BIRTH", f"🦅 {self.species_name} born at {self.pos}")
+
+
 # ============= MODEL CLASS =============
 
 class IslandModel(Model):
     """The island ecosystem with environmental variables"""
     def __init__(self, width=50, height=50,
                  num_herbivores=20, num_carnivores=10,  # INCREASED from 5 to 10
-                 temperature=25, rainfall=100, use_learning_agents=False, use_ppo_agents=False):
+                 temperature=25, rainfall=100, use_learning_agents=False, use_ppo_agents=False,
+                 terrain_map=None):
         super().__init__()
         self.grid = MultiGrid(width, height, torus=True)
         # Note: Mesa 3.x doesn't need a separate scheduler
         # Agents are automatically tracked in self.agents
+
+        # Terrain system
+        self.terrain_map = terrain_map
 
         # Environmental variables
         self.temperature = temperature  # Celsius
@@ -257,7 +501,7 @@ class IslandModel(Model):
         # Event log for visualization
         self.event_log = []
         self.max_log_size = 50  # Keep last 50 events
-        
+
         # Add data collection
         self.datacollector = DataCollector(
             model_reporters={
@@ -269,6 +513,14 @@ class IslandModel(Model):
                                              if isinstance(a, Triceratops)]),
                 "Gallimimus": lambda m: len([a for a in m.agents
                                             if isinstance(a, Gallimimus)]),
+                "Stegosaurus": lambda m: len([a for a in m.agents
+                                             if isinstance(a, Stegosaurus)]),
+                "Pachycephalosaurus": lambda m: len([a for a in m.agents
+                                                    if isinstance(a, Pachycephalosaurus)]),
+                "Brachiosaurus": lambda m: len([a for a in m.agents
+                                               if isinstance(a, Brachiosaurus)]),
+                "Archeopteryx": lambda m: len([a for a in m.agents
+                                              if isinstance(a, Archeopteryx)]),
                 "TRex": lambda m: len([a for a in m.agents
                                      if isinstance(a, TRex)]),
                 "Velociraptor": lambda m: len([a for a in m.agents
@@ -280,36 +532,80 @@ class IslandModel(Model):
                 "Events": lambda m: len(m.event_log),  # Track event count
             }
         )
-        
-        # Add grass everywhere
-        for x in range(width):
-            for y in range(height):
-                grass = GrassAgent(self)
-                self.grid.place_agent(grass, (x, y))
 
-        # Add herbivores (mix of Triceratops and Gallimimus)
+        # Add grass everywhere (only if no terrain map provided)
+        if terrain_map is None:
+            for x in range(width):
+                for y in range(height):
+                    grass = GrassAgent(self)
+                    self.grid.place_agent(grass, (x, y))
+        else:
+            # With terrain, add grass only on land tiles
+            from terrain_generator import TerrainType, TERRAIN_WALKABLE
+            for x in range(width):
+                for y in range(height):
+                    terrain_type = TerrainType(terrain_map[y, x])
+                    # Add grass on walkable land (not ocean/river)
+                    if TERRAIN_WALKABLE[terrain_type] and terrain_type not in [TerrainType.BEACH, TerrainType.SAND]:
+                        grass = GrassAgent(self)
+                        self.grid.place_agent(grass, (x, y))
+
+        # Get valid spawn locations for dinosaurs
+        if terrain_map is not None:
+            from terrain_generator import TerrainType
+            # Find valid spawn locations (grassland, forest areas)
+            valid_spawns = []
+            for x in range(width):
+                for y in range(height):
+                    terrain_type = TerrainType(terrain_map[y, x])
+                    if terrain_type in [TerrainType.GRASSLAND, TerrainType.FOREST]:
+                        valid_spawns.append((x, y))
+        else:
+            # No terrain - any location is valid
+            valid_spawns = [(x, y) for x in range(width) for y in range(height)]
+
+        # Add herbivores (mix of all species)
         if self.use_ppo_agents:
-            # Import PPO agents
-            from ppo_agents import PPOTriceratops, PPOGallimimus
-            herbivore_species = [PPOTriceratops, PPOGallimimus]
+            # Import PPO agents (requires stable_baselines3)
+            try:
+                from ppo_agents import PPOTriceratops, PPOGallimimus
+                herbivore_species = [PPOTriceratops, PPOGallimimus]
+            except ImportError as e:
+                print(f"⚠️  Cannot load PPO agents: {e}")
+                print("   Install with: pip install stable-baselines3")
+                print("   Falling back to traditional agents...")
+                self.use_ppo_agents = False
+                herbivore_species = [
+                    Triceratops, Gallimimus, Stegosaurus,
+                    Pachycephalosaurus, Brachiosaurus, Archeopteryx
+                ]
         elif self.use_learning_agents:
             # Import Q-learning agents
             from learning_agents import LearningTriceratops, LearningGallimimus
             herbivore_species = [LearningTriceratops, LearningGallimimus]
         else:
-            herbivore_species = [Triceratops, Gallimimus]
+            # All herbivore species available in traditional mode
+            herbivore_species = [
+                Triceratops, Gallimimus, Stegosaurus,
+                Pachycephalosaurus, Brachiosaurus, Archeopteryx
+            ]
 
         for i in range(num_herbivores):
             species_class = self.random.choice(herbivore_species)
             herbivore = species_class(self)
-            x = self.random.randrange(width)
-            y = self.random.randrange(height)
-            self.grid.place_agent(herbivore, (x, y))
+            spawn_loc = self.random.choice(valid_spawns)
+            self.grid.place_agent(herbivore, spawn_loc)
 
         # Add carnivores (mix of TRex and Velociraptor)
         if self.use_ppo_agents:
-            from ppo_agents import PPOTRex, PPOVelociraptor
-            carnivore_species = [PPOTRex, PPOVelociraptor]
+            # Import PPO agents (requires stable_baselines3)
+            try:
+                from ppo_agents import PPOTRex, PPOVelociraptor
+                carnivore_species = [PPOTRex, PPOVelociraptor]
+            except ImportError as e:
+                print(f"⚠️  Cannot load PPO carnivore agents: {e}")
+                print("   Falling back to traditional carnivores...")
+                carnivore_species = [TRex, Velociraptor]
         elif self.use_learning_agents:
             from learning_agents import LearningTRex, LearningVelociraptor
             carnivore_species = [LearningTRex, LearningVelociraptor]
@@ -319,9 +615,8 @@ class IslandModel(Model):
         for i in range(num_carnivores):
             species_class = self.random.choice(carnivore_species)
             carnivore = species_class(self)
-            x = self.random.randrange(width)
-            y = self.random.randrange(height)
-            self.grid.place_agent(carnivore, (x, y))
+            spawn_loc = self.random.choice(valid_spawns)
+            self.grid.place_agent(carnivore, spawn_loc)
     
     def log_event(self, event_type, message):
         """Add an event to the log with step number"""
