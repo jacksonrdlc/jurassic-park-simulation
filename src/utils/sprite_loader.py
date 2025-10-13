@@ -1,78 +1,100 @@
 """
 Sprite Loader
-Loads and caches dinosaur sprite images
+Loads and caches dinosaur sprite sheets with animation support
 """
 
-import os
 import pygame
-from src.config.settings import CELL_SIZE, SPRITE_SCALE_MULTIPLIER
+from sprite_sheet import DinosaurSprite
+from src.config.settings import SPRITE_SCALES
 
 
 class SpriteLoader:
-    """Loads and manages sprite images"""
+    """Loads and manages sprite sheet images with animation"""
 
     # Class-level cache for loaded sprites
     _sprite_cache = {}
     _sprites_loaded = False
 
-    @classmethod
-    def load_sprites(cls, sprite_dir="dino_sprites"):
-        """
-        Load all dinosaur sprites from directory
+    # Color tints for each species (earthy colors)
+    _dino_tints = {
+        'trex': (140, 40, 30),             # Blood red/brown apex predator
+        'triceratops': (120, 90, 60),      # Earthy tan/brown
+        'velociraptor': (100, 70, 50),     # Dark brown pack hunter
+        'gallimimus': (180, 150, 100),     # Tan/beige fast herbivore
+        'stegosaurus': (130, 100, 70),     # Brown plated herbivore
+        'pachycephalosaurus': (150, 110, 80),  # Light brown dome-headed
+        'brachiosaurus': (160, 140, 100),  # Warm tan massive sauropod
+        'archeopteryx': (110, 100, 90),    # Gray-brown proto-bird
+    }
 
-        Args:
-            sprite_dir: Directory containing sprite images
+    @classmethod
+    def load_sprites(cls):
+        """
+        Load all dinosaur sprite sheets from dino_sprites directory
 
         Returns:
-            dict: Mapping of species name to pygame surface
+            dict: Mapping of species name to DinosaurSprite object
         """
         if cls._sprites_loaded:
             return cls._sprite_cache
 
-        sprite_files = {
-            'triceratops': 'triceratops.png',
-            'gallimimus': 'gallimimus.png',
-            'trex': 'trex.png',
-            'velociraptor': 'velociraptor.png',
-        }
+        try:
+            # 16x16 sprites
+            cls._sprite_cache['trex'] = DinosaurSprite(
+                'dino_sprites/TyrannosaurusRex_16x16.png',
+                scale=SPRITE_SCALES['trex']
+            )
+            cls._sprite_cache['triceratops'] = DinosaurSprite(
+                'dino_sprites/Triceratops_16x16.png',
+                scale=SPRITE_SCALES['triceratops']
+            )
+            cls._sprite_cache['velociraptor'] = DinosaurSprite(
+                'dino_sprites/Spinosaurus_16x16.png',
+                scale=SPRITE_SCALES['velociraptor']
+            )
+            cls._sprite_cache['gallimimus'] = DinosaurSprite(
+                'dino_sprites/Parasaurolophus_16x16.png',
+                scale=SPRITE_SCALES['gallimimus']
+            )
+            cls._sprite_cache['pachycephalosaurus'] = DinosaurSprite(
+                'dino_sprites/Pachycephalosaurus_16x16.png',
+                scale=SPRITE_SCALES['pachycephalosaurus']
+            )
+            cls._sprite_cache['archeopteryx'] = DinosaurSprite(
+                'dino_sprites/Archeopteryx_16x16.png',
+                scale=SPRITE_SCALES['archeopteryx']
+            )
 
-        for species, filename in sprite_files.items():
-            filepath = os.path.join(sprite_dir, filename)
-            if os.path.exists(filepath):
-                try:
-                    # Load image
-                    sprite = pygame.image.load(filepath).convert_alpha()
-                    cls._sprite_cache[species] = sprite
-                    print(f"✅ Loaded sprite: {species}")
-                except Exception as e:
-                    print(f"⚠️  Failed to load {filename}: {e}")
-                    cls._sprite_cache[species] = None
-            else:
-                print(f"⚠️  Sprite not found: {filepath}")
-                cls._sprite_cache[species] = None
+            # 32x32 sprites
+            cls._sprite_cache['stegosaurus'] = DinosaurSprite(
+                'dino_sprites/Stegosaurus_32x32.png',
+                frame_size=32,
+                scale=SPRITE_SCALES['stegosaurus']
+            )
+            cls._sprite_cache['brachiosaurus'] = DinosaurSprite(
+                'dino_sprites/Brachiosaurus_32x32.png',
+                frame_size=32,
+                scale=SPRITE_SCALES['brachiosaurus']
+            )
 
-        cls._sprites_loaded = True
+            cls._sprites_loaded = True
+            print("✅ Loaded dinosaur sprite sheets with directional frames!")
 
-        # Print summary
-        loaded_count = sum(1 for v in cls._sprite_cache.values() if v is not None)
-        total_count = len(sprite_files)
-
-        if loaded_count == 0:
-            print("ℹ️  No sprites loaded - using polygon rendering")
-        elif loaded_count < total_count:
-            print(f"ℹ️  Loaded {loaded_count}/{total_count} sprites - mixing sprites and polygons")
-        else:
-            print(f"✅ All sprites loaded ({loaded_count}/{total_count})")
+        except Exception as e:
+            print(f"⚠️  Warning: Could not load sprite sheets: {e}")
+            cls._sprites_loaded = False
 
         return cls._sprite_cache
 
     @classmethod
-    def get_sprite(cls, species_name):
+    def get_sprite(cls, species_name, direction=(1, 0), animate=True):
         """
-        Get sprite for a species
+        Get animated sprite for a species
 
         Args:
             species_name: Name of species (lowercase)
+            direction: Movement direction (dx, dy)
+            animate: Whether to advance animation frame
 
         Returns:
             pygame.Surface or None if not loaded
@@ -80,7 +102,23 @@ class SpriteLoader:
         if not cls._sprites_loaded:
             cls.load_sprites()
 
-        return cls._sprite_cache.get(species_name.lower())
+        sprite_handler = cls._sprite_cache.get(species_name.lower())
+        if sprite_handler is None:
+            return None
+
+        # Get sprite based on direction
+        sprite = sprite_handler.get_sprite_from_movement(direction[0], direction[1], animate)
+
+        # Apply earthy color tint
+        if species_name.lower() in cls._dino_tints:
+            tint_color = cls._dino_tints[species_name.lower()]
+            tinted_sprite = sprite.copy()
+            color_overlay = pygame.Surface(tinted_sprite.get_size(), pygame.SRCALPHA)
+            color_overlay.fill((*tint_color, 180))  # Semi-transparent tint
+            tinted_sprite.blit(color_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            sprite = tinted_sprite
+
+        return sprite
 
     @classmethod
     def has_sprite(cls, species_name):
@@ -93,53 +131,10 @@ class SpriteLoader:
         Returns:
             bool: True if sprite is loaded
         """
-        sprite = cls.get_sprite(species_name)
-        return sprite is not None
+        if not cls._sprites_loaded:
+            cls.load_sprites()
 
-    @classmethod
-    def get_scaled_sprite(cls, species_name, size_ratio, direction=(1, 0)):
-        """
-        Get scaled and rotated sprite for rendering
-
-        Args:
-            species_name: Name of species
-            size_ratio: Size multiplier (0.3-0.45)
-            direction: Movement direction tuple (dx, dy)
-
-        Returns:
-            pygame.Surface or None
-        """
-        import math
-
-        sprite = cls.get_sprite(species_name)
-        if sprite is None:
-            return None
-
-        # Calculate target size (GBA-style scaling)
-        target_size = int(CELL_SIZE * size_ratio * SPRITE_SCALE_MULTIPLIER)
-
-        # Scale sprite maintaining aspect ratio
-        sprite_rect = sprite.get_rect()
-        scale_factor = target_size / max(sprite_rect.width, sprite_rect.height)
-        new_width = int(sprite_rect.width * scale_factor)
-        new_height = int(sprite_rect.height * scale_factor)
-
-        scaled_sprite = pygame.transform.scale(sprite, (new_width, new_height))
-
-        # Calculate rotation angle (sprites should face right by default)
-        if direction == (0, 0):
-            angle = 0
-        else:
-            # Convert to degrees (pygame rotates counter-clockwise)
-            angle = -math.degrees(math.atan2(direction[1], direction[0]))
-
-        # Rotate sprite
-        if angle != 0:
-            rotated_sprite = pygame.transform.rotate(scaled_sprite, angle)
-        else:
-            rotated_sprite = scaled_sprite
-
-        return rotated_sprite
+        return species_name.lower() in cls._sprite_cache
 
     @classmethod
     def clear_cache(cls):

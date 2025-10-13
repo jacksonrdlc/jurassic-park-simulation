@@ -4,25 +4,29 @@ A real-time agent-based ecosystem simulation featuring diverse dinosaur species 
 
 ## 🚀 Quick Start
 
-### New Modular Version (Recommended) 🏗️
+### ✅ Run the Simulation
+
+**Virtual Environment:** `jurassic_env` (Python 3.13)
+
 ```bash
 source jurassic_env/bin/activate
-python run_game.py              # Traditional agents
-python run_game.py --ai         # Q-learning agents
-python run_game.py --ppo        # PPO agents
+python run_game.py              # Traditional rule-based agents
+python run_game.py --ai         # Q-learning neural network agents
+python run_game.py --ppo        # PPO reinforcement learning agents
 ```
 
-### Legacy Version (Backwards Compatible)
-```bash
-source jurassic_env/bin/activate
-python pygame_viz.py            # Traditional agents
-python pygame_viz.py --ai       # Q-learning agents
-python pygame_viz.py --ppo      # PPO agents
-```
+**Features:**
+- ✅ Authentic pixel art dinosaur sprites with 4-directional animation
+- ✅ Tree sprites on forests and rainforests
+- ✅ Goal-oriented AI (herbivores seek grass, carnivores hunt prey)
+- ✅ Animation only when moving (no idle animation)
+- ✅ 16px ultra-fine terrain detail with proper proportions
+- ✅ Widescreen 1600x900 viewport with smooth camera exploration
+- ✅ Cohesive procedurally-generated Costa Rican island
+- ✅ Movement trails showing last 3 positions
+- ✅ Modular architecture with clean separation of concerns
 
 **Note:** PPO agents require training first (see PPO Training section below)
-
-**New!** The project now uses a modular architecture following pygame best practices. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 
 ## 🦖 Dinosaur Species
 
@@ -271,7 +275,8 @@ Open http://localhost:6006 to see live training graphs!
 
 After training, run the simulation with PPO agents:
 ```bash
-python pygame_viz.py --ppo
+source jurassic_env/bin/activate
+python run_game.py --ppo
 ```
 
 **What to Expect:**
@@ -331,7 +336,7 @@ Pre-trained models saved in `models/`:
 - `carnivore_final.pth` - Trained carnivore neural network
 - `*_episode_N.pth` - Checkpoint models from training
 
-Load automatically when running `python pygame_viz.py --ai`
+Load automatically when running `python run_game.py --ai`
 
 ## 📚 Tech Stack
 
@@ -355,33 +360,39 @@ Dinosaur sprites located in `dino_sprites/` folder:
 
 ```
 jurassic-park-simulation/
-├── src/                        # Modular source code (NEW! 🏗️)
+├── src/                        # Modular source code
 │   ├── config/                 # Configuration
-│   │   ├── colors.py           # Color scheme
-│   │   └── settings.py         # Game constants
+│   │   ├── colors.py           # Color scheme (Jurassic Park theme)
+│   │   └── settings.py         # Game constants (viewport, cell size, etc.)
 │   ├── entities/               # Game entities
-│   │   ├── dinosaur_sprite.py  # Sprite rendering
-│   │   └── particle.py         # Particle system
+│   │   ├── dinosaur_sprite.py  # Sprite rendering helpers
+│   │   └── particle.py         # Particle system (volcano smoke)
 │   ├── rendering/              # Rendering modules
-│   │   ├── terrain_renderer.py # Terrain & agents
-│   │   ├── ui_renderer.py      # UI & panels
-│   │   └── effects_renderer.py # Weather & effects
-│   └── managers/               # Game management
-│       ├── game_manager.py     # Main game loop
-│       └── event_manager.py    # Input handling
+│   │   ├── terrain_renderer.py # Terrain, agents, sprites, trees
+│   │   ├── ui_renderer.py      # UI panels & minimap
+│   │   └── effects_renderer.py # Weather & environmental effects
+│   ├── managers/               # Game management
+│   │   ├── game_manager.py     # Main game loop
+│   │   └── event_manager.py    # Input handling (keyboard, mouse)
+│   └── utils/                  # Utilities
+│       └── sprite_loader.py    # Sprite sheet loading & animation
 │
-├── run_game.py                 # New modular entry point
-├── pygame_viz.py               # Legacy monolithic version
-├── my_first_island.py          # Core ecosystem model
-├── terrain_generator.py        # Procedural island generation
+├── run_game.py                 # Main entry point (start here!)
+├── my_first_island.py          # Core ecosystem model (Mesa agents)
+├── terrain_generator.py        # Procedural island generation (Perlin noise)
 ├── camera.py                   # Viewport/camera system
+├── sprite_sheet.py             # Sprite sheet parser (4x4 directional frames)
 ├── dino_sprites/               # Dinosaur sprite artwork
 │   ├── TyrannosaurusRex_16x16.png
 │   ├── Triceratops_16x16.png
-│   ├── Spinosaurus_16x16.png
-│   ├── Parasaurolophus_16x16.png
-│   └── ...                     # Additional sprite artwork
-├── learning_agents.py          # PyTorch Q-learning agents
+│   ├── Spinosaurus_16x16.png (used for Velociraptor)
+│   ├── Parasaurolophus_16x16.png (used for Gallimimus)
+│   ├── Brachiosaurus_32x32.png
+│   ├── Stegosaurus_32x32.png
+│   ├── Archeopteryx_16x16.png
+│   ├── Pachycephalosaurus_16x16.png
+│   └── README.md               # Sprite specifications
+├── learning_agents.py          # PyTorch Q-learning agents (DQN)
 ├── ppo_agents.py               # PPO reinforcement learning agents
 ├── ppo_env.py                  # Gymnasium environments for PPO
 ├── train_agents.py             # Q-learning training script
@@ -392,8 +403,8 @@ jurassic-park-simulation/
 │   ├── carnivore_final.pth     # Q-learning carnivore
 │   ├── ppo_herbivore_best.zip  # PPO herbivore
 │   └── ppo_carnivore_best.zip  # PPO carnivore
-├── jurassic_env/              # Python 3.13 environment
-├── jurassic_ml_env/           # Python 3.11 ML environment
+├── jurassic_env/              # Python 3.13 environment (main)
+├── jurassic_ml_env/           # Python 3.11 ML environment (training)
 ├── README.md                  # This file
 └── ARCHITECTURE.md            # Architecture documentation
 ```

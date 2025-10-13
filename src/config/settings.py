@@ -3,25 +3,25 @@ Game Settings and Constants
 Window dimensions, gameplay parameters, etc.
 """
 
-# World dimensions
-WORLD_WIDTH = 1250
-WORLD_HEIGHT = 750
-CELL_SIZE = 32  # GBA-style (Pokemon-like)
+# World dimensions - Costa Rican Island
+WORLD_WIDTH = 625
+WORLD_HEIGHT = 375
+CELL_SIZE = 16  # 16px cells for zoomed-in terrain detail
 
-# Viewport dimensions (GBA-style: only ~12x9 tiles visible like Pokemon!)
-VIEWPORT_WIDTH = 384   # 12 cells visible width
-VIEWPORT_HEIGHT = 288  # 9 cells visible height
+# Viewport dimensions - Widescreen modern display
+VIEWPORT_WIDTH = 1600   # ~100 cells visible width at 16px
+VIEWPORT_HEIGHT = 900   # ~56 cells visible height at 16px
 
 # UI dimensions
 PANEL_WIDTH = 450
 WINDOW_WIDTH = VIEWPORT_WIDTH + PANEL_WIDTH
-WINDOW_HEIGHT = max(VIEWPORT_HEIGHT, 800)
+WINDOW_HEIGHT = VIEWPORT_HEIGHT
 
 # Simulation parameters
 DEFAULT_TEMPERATURE = 25
 DEFAULT_RAINFALL = 100
-DEFAULT_NUM_HERBIVORES = 500
-DEFAULT_NUM_CARNIVORES = 200
+DEFAULT_NUM_HERBIVORES = 125  # Balanced for 625x375 world
+DEFAULT_NUM_CARNIVORES = 50
 
 # Visual effects
 TIME_SPEED = 0.001  # Speed of day/night cycle
@@ -43,8 +43,17 @@ FONT_MEDIUM_SIZE = 22
 FONT_SMALL_SIZE = 16
 FONT_COORD_SIZE = 14
 
-# Dinosaur sprite scaling (GBA-style: span multiple tiles)
-SPRITE_SCALE_MULTIPLIER = 3.5
+# Dinosaur sprite scaling (proportional to 16px cells)
+SPRITE_SCALES = {
+    'trex': 1.8,
+    'triceratops': 1.5,
+    'velociraptor': 1.5,
+    'gallimimus': 1.2,
+    'stegosaurus': 1.2,
+    'pachycephalosaurus': 1.3,
+    'brachiosaurus': 1.5,
+    'archeopteryx': 1.0,
+}
 
 # Movement trail
 MOVEMENT_TRAIL_LENGTH = 3
