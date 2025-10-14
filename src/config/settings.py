@@ -43,16 +43,16 @@ FONT_MEDIUM_SIZE = 22
 FONT_SMALL_SIZE = 16
 FONT_COORD_SIZE = 14
 
-# Dinosaur sprite scaling (proportional to 16px cells)
+# Dinosaur sprite scaling (proportional to 16px cells) - DOUBLED for visibility
 SPRITE_SCALES = {
-    'trex': 1.8,
-    'triceratops': 1.5,
-    'velociraptor': 1.5,
-    'gallimimus': 1.2,
-    'stegosaurus': 1.2,
-    'pachycephalosaurus': 1.3,
-    'brachiosaurus': 1.5,
-    'archeopteryx': 1.0,
+    'trex': 3.6,           # Was 1.8
+    'triceratops': 3.0,    # Was 1.5
+    'velociraptor': 3.0,   # Was 1.5
+    'gallimimus': 2.4,     # Was 1.2
+    'stegosaurus': 2.4,    # Was 1.2
+    'pachycephalosaurus': 2.6,  # Was 1.3
+    'brachiosaurus': 3.0,  # Was 1.5
+    'archeopteryx': 2.0,   # Was 1.0
 }
 
 # Movement trail

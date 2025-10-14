@@ -109,6 +109,7 @@ class GameManager:
 
         # Reset renderers
         self.effects_renderer.reset()
+        self.terrain_renderer.reset_tree_clusters()  # Reset tree clusters for new terrain
 
         # Center camera
         self.camera.center_on(WORLD_WIDTH / 2, WORLD_HEIGHT / 2)

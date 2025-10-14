@@ -42,7 +42,7 @@ TERRAIN_WALKABLE = {
     TerrainType.GRASSLAND: True,
     TerrainType.FOREST: True,
     TerrainType.RAINFOREST: True,
-    TerrainType.RIVER: False,  # Can't walk through rivers
+    TerrainType.RIVER: False,  # Cannot walk through water
     TerrainType.MOUNTAIN: True,  # Can walk but slow
     TerrainType.VOLCANO: True,   # Can walk but slow
 }
@@ -75,20 +75,26 @@ class SimplexNoise:
 
     def noise2d(self, x, y):
         """Generate 2D noise value between -1 and 1"""
-        # Simplified noise - blend of sine waves with different frequencies
+        # Improved noise - blend of multiple sine/cosine waves at different angles
         value = 0
         amplitude = 1.0
         frequency = 1.0
 
-        for _ in range(4):  # 4 octaves
+        # Multiple octaves with varied directions to avoid streaks
+        angles = [0, 0.7, 1.3, 2.1]  # Different rotation angles
+        for angle in angles:
+            # Rotate coordinates to break up linear patterns
+            rx = x * np.cos(angle) - y * np.sin(angle)
+            ry = x * np.sin(angle) + y * np.cos(angle)
+
             value += amplitude * (
-                np.sin(x * frequency * 0.1) * np.cos(y * frequency * 0.1) +
-                np.sin((x + y) * frequency * 0.05)
+                np.sin(rx * frequency * 0.07) * np.cos(ry * frequency * 0.07) +
+                np.sin((rx + ry) * frequency * 0.04) * 0.5
             )
             amplitude *= 0.5
             frequency *= 2.0
 
-        return np.clip(value, -1, 1)
+        return np.clip(value / 2.0, -1, 1)  # Normalize
 
 
 class IslandGenerator:
@@ -137,11 +143,12 @@ class IslandGenerator:
 
         for y in range(self.height):
             for x in range(self.width):
-                # Multiple octaves of noise for natural terrain
+                # Multiple octaves of noise for smooth natural terrain
                 value = 0.0
-                value += 0.5 * self.noise.noise2d(x * 0.5, y * 0.5)
-                value += 0.25 * self.noise.noise2d(x * 1.0, y * 1.0)
-                value += 0.125 * self.noise.noise2d(x * 2.0, y * 2.0)
+                value += 0.5 * self.noise.noise2d(x * 0.3, y * 0.3)    # Large features
+                value += 0.25 * self.noise.noise2d(x * 0.8, y * 0.8)   # Medium features
+                value += 0.15 * self.noise.noise2d(x * 1.5, y * 1.5)   # Small features
+                value += 0.10 * self.noise.noise2d(x * 3.0, y * 3.0)   # Fine detail
 
                 # Normalize to 0-1
                 heightmap[y, x] = (value + 1.0) / 2.0
@@ -149,36 +156,47 @@ class IslandGenerator:
         return heightmap
 
     def _apply_island_mask(self, heightmap):
-        """Shape terrain into island form (higher in center, ocean at edges)"""
+        """Shape terrain into one large, naturally irregular island"""
         center_x = self.width / 2
         center_y = self.height / 2
-
-        max_dist = np.sqrt(center_x**2 + center_y**2)
 
         masked = np.copy(heightmap)
 
         for y in range(self.height):
             for x in range(self.width):
-                # Distance from center
+                # Distance from center (normalized)
                 dx = (x - center_x) / center_x
                 dy = (y - center_y) / center_y
                 dist = np.sqrt(dx**2 + dy**2)
 
-                # Falloff curve - creates island shape
-                # Values close to 1.0 at edges become 0 (ocean)
-                # Values at center stay high (land)
-                # SOFTENED: More gradual falloff for cohesive island
-                falloff = 1.0 - np.clip(dist * 0.6, 0, 1)  # Was 0.8, now 0.6 (wider island)
-                falloff = falloff ** 1.2  # Was 1.5, now 1.2 (gentler falloff)
+                # Add organic variation using noise for natural coastline
+                noise_val = self.noise.noise2d(x * 0.3, y * 0.3)
+                radius_variation = 0.15 * noise_val  # +/- 15% variation
 
-                masked[y, x] = heightmap[y, x] * falloff
+                # Natural irregular island boundary
+                island_radius = 0.85 + radius_variation
+                transition_radius = 0.95 + radius_variation
+
+                # Create ONE BIG NATURALLY-SHAPED ISLAND
+                if dist < island_radius:
+                    # Inside the island - keep terrain at full height
+                    falloff = 1.0
+                elif dist < transition_radius:
+                    # Transition zone - gentle slope to beach
+                    transition = (transition_radius - dist) / 0.10
+                    falloff = 0.5 + (transition * 0.5)
+                else:
+                    # Ocean edge - sharp dropoff
+                    falloff = 0.0
+
+                masked[y, x] = heightmap[y, x] * falloff + (falloff * 0.3)
 
         return masked
 
     def _add_volcano(self, heightmap):
-        """Add central volcanic peak"""
-        center_x = self.width // 2 + random.randint(-20, 20)
-        center_y = self.height // 2 + random.randint(-20, 20)
+        """Add volcanic peak at TOP CENTER of island"""
+        center_x = self.width // 2 + random.randint(-10, 10)  # Near horizontal center
+        center_y = self.height // 4 + random.randint(-5, 5)   # Top quarter of island
 
         volcano_radius = 15
 
@@ -206,19 +224,20 @@ class IslandGenerator:
             for x in range(self.width):
                 h = heightmap[y, x]
 
-                if h < 0.25:
+                # MORE FORESTS, LESS MOUNTAINS for solid green island
+                if h < 0.15:
                     terrain_map[y, x] = TerrainType.OCEAN.value
-                elif h < 0.28:
+                elif h < 0.20:
                     terrain_map[y, x] = TerrainType.BEACH.value
-                elif h < 0.32:
+                elif h < 0.25:
                     terrain_map[y, x] = TerrainType.SAND.value
-                elif h < 0.45:
+                elif h < 0.40:  # Was 0.45, more grassland
                     terrain_map[y, x] = TerrainType.GRASSLAND.value
-                elif h < 0.60:
+                elif h < 0.65:  # Was 0.60, extended forest range
                     terrain_map[y, x] = TerrainType.FOREST.value
-                elif h < 0.75:
+                elif h < 0.85:  # Was 0.75, much more rainforest
                     terrain_map[y, x] = TerrainType.RAINFOREST.value
-                elif h < 0.88:
+                elif h < 0.92:  # Was 0.88, mountains only at peaks
                     terrain_map[y, x] = TerrainType.MOUNTAIN.value
                 else:
                     terrain_map[y, x] = TerrainType.VOLCANO.value
@@ -229,11 +248,11 @@ class IslandGenerator:
         """Add rivers flowing from mountains to ocean"""
         modified = np.copy(terrain_map)
 
-        # Find high points (sources)
+        # Find high points (sources) - MINIMAL rivers for solid island
         sources = []
         for y in range(10, self.height - 10):
             for x in range(10, self.width - 10):
-                if heightmap[y, x] > 0.7 and random.random() < 0.02:
+                if heightmap[y, x] > 0.80 and random.random() < 0.005:  # Very high threshold, very low chance
                     sources.append((x, y))
 
         # Flow rivers downhill
@@ -275,24 +294,32 @@ class IslandGenerator:
         return modified
 
     def _smooth_terrain(self, terrain_map):
-        """Smooth terrain transitions (remove single-cell anomalies)"""
+        """Smooth terrain transitions (remove streaks and anomalies)"""
         modified = np.copy(terrain_map)
 
-        for y in range(1, self.height - 1):
-            for x in range(1, self.width - 1):
-                current = terrain_map[y, x]
+        # Multiple smoothing passes for better results
+        for pass_num in range(3):  # 3 passes
+            for y in range(1, self.height - 1):
+                for x in range(1, self.width - 1):
+                    current = modified[y, x]
 
-                # Get neighbors
-                neighbors = [
-                    terrain_map[y-1, x], terrain_map[y+1, x],
-                    terrain_map[y, x-1], terrain_map[y, x+1]
-                ]
+                    # Get all 8 neighbors (Moore neighborhood)
+                    neighbors = [
+                        modified[y-1, x-1], modified[y-1, x], modified[y-1, x+1],
+                        modified[y, x-1],                      modified[y, x+1],
+                        modified[y+1, x-1], modified[y+1, x], modified[y+1, x+1]
+                    ]
 
-                # If surrounded by same terrain, adopt it (smooths isolated cells)
-                if len(set(neighbors)) == 1 and neighbors[0] != current:
-                    # Don't smooth rivers or special features
-                    if current not in [TerrainType.RIVER.value, TerrainType.VOLCANO.value]:
-                        modified[y, x] = neighbors[0]
+                    # Find most common terrain type in neighborhood
+                    from collections import Counter
+                    neighbor_counts = Counter(neighbors)
+                    most_common_terrain, count = neighbor_counts.most_common(1)[0]
+
+                    # If 5+ neighbors are the same type, adopt it (smooths streaks)
+                    if count >= 5 and most_common_terrain != current:
+                        # Don't smooth rivers or volcanoes
+                        if current not in [TerrainType.RIVER.value, TerrainType.VOLCANO.value]:
+                            modified[y, x] = most_common_terrain
 
         return modified
 

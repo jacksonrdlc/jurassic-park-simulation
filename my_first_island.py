@@ -42,6 +42,7 @@ class HerbivoreAgent(Agent):
         self.direction = (1, 0)  # Direction facing (dx, dy)
         self.movement_history = []  # Track recent positions for trails
         self.is_moving = False  # Track if agent moved this step
+        self.reproduction_cooldown = 0  # Steps until can reproduce again
 
     def is_walkable(self, pos):
         """Check if a position is walkable based on terrain"""
@@ -133,19 +134,25 @@ class HerbivoreAgent(Agent):
         # Lose energy (affected by temperature AND body size!)
         energy_loss = 1 * self.model.metabolism_multiplier * self.size_metabolism
         self.energy -= energy_loss
-        
+
+        # Update reproduction cooldown
+        if self.reproduction_cooldown > 0:
+            self.reproduction_cooldown -= 1
+
         # Die if out of energy
         if self.energy <= 0:
             self.model.log_event("DEATH", f"💀 {self.species_name} starved at {self.pos}")
             self.model.grid.remove_agent(self)
             self.remove()  # Mesa 3.x: removes from model.agents
-        
-        # Reproduce if enough energy
-        if self.energy > 100 and self.random.random() < 0.05:
+
+        # Reproduce if enough energy and not on cooldown
+        # BALANCED: Higher threshold (150) and lower chance (1%) for realistic 3-hour growth to 8k dinos
+        if self.energy > 150 and self.reproduction_cooldown == 0 and self.random.random() < 0.01:
             self.reproduce()
     
     def reproduce(self):
         self.energy /= 2
+        self.reproduction_cooldown = 100  # Must wait 100 steps before reproducing again
         baby = self.__class__(self.model)  # Create same species as parent
         self.model.grid.place_agent(baby, self.pos)
         self.model.log_event("BIRTH", f"🦕 {self.species_name} born at {self.pos}")
@@ -163,6 +170,7 @@ class CarnivoreAgent(Agent):
         self.direction = (1, 0)  # Direction facing (dx, dy)
         self.movement_history = []  # Track recent positions for trails
         self.is_moving = False  # Track if agent moved this step
+        self.reproduction_cooldown = 0  # Steps until can reproduce again
 
     def is_walkable(self, pos):
         """Check if a position is walkable based on terrain"""
@@ -271,19 +279,25 @@ class CarnivoreAgent(Agent):
         # Lose energy (affected by temperature AND body size!)
         energy_loss = 2 * self.model.metabolism_multiplier * self.size_metabolism
         self.energy -= energy_loss
-        
+
+        # Update reproduction cooldown
+        if self.reproduction_cooldown > 0:
+            self.reproduction_cooldown -= 1
+
         # Die
         if self.energy <= 0:
             self.model.log_event("DEATH", f"💀 {self.species_name} starved at {self.pos}")
             self.model.grid.remove_agent(self)
             self.remove()  # Mesa 3.x: removes from model.agents
-        
-        # Reproduce - REDUCED threshold from 150 to 120 for easier breeding
-        if self.energy > 120 and self.random.random() < 0.03:
+
+        # Reproduce if enough energy and not on cooldown
+        # BALANCED: Higher threshold (200) and lower chance (0.8%) for realistic 3-hour growth to 8k dinos
+        if self.energy > 200 and self.reproduction_cooldown == 0 and self.random.random() < 0.008:
             self.reproduce()
     
     def reproduce(self):
         self.energy /= 2
+        self.reproduction_cooldown = 150  # Must wait 150 steps before reproducing again (longer than herbivores)
         baby = self.__class__(self.model)  # Create same species as parent
         self.model.grid.place_agent(baby, self.pos)
         self.model.log_event("BIRTH", f"🦖 {self.species_name} born at {self.pos}")
@@ -420,6 +434,7 @@ class Brachiosaurus(HerbivoreAgent):
         # Brachiosaurus needs more energy to reproduce
         if self.energy > self.reproduce_threshold:
             self.energy /= 2
+            self.reproduction_cooldown = 200  # Long cooldown for massive dinosaur
             baby = self.__class__(self.model)
             self.model.grid.place_agent(baby, self.pos)
             self.model.log_event("BIRTH", f"🦕 {self.species_name} born at {self.pos}")
@@ -460,9 +475,10 @@ class Archeopteryx(HerbivoreAgent):
         super().step()
 
     def reproduce(self):
-        # Archeopteryx reproduces easily
+        # Archeopteryx reproduces easily (but still has cooldown to prevent spam)
         if self.energy > self.reproduce_threshold:
             self.energy /= 2
+            self.reproduction_cooldown = 50  # Short cooldown for small bird-like dinosaur
             baby = self.__class__(self.model)
             self.model.grid.place_agent(baby, self.pos)
             self.model.log_event("BIRTH", f"🦅 {self.species_name} born at {self.pos}")
