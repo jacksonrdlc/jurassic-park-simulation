@@ -168,9 +168,16 @@ class GameManager:
         # Clear screen
         self.screen.fill(COLORS['background'])
 
-        # Draw terrain and agents
+        # Draw terrain (ground only)
         self.terrain_renderer.draw_terrain(self.terrain_map, self.terrain_noise)
+
+        # Draw trees (on top of ground, below agents)
+        self.terrain_renderer.draw_trees()
+
+        # Draw water shimmer
         self.terrain_renderer.draw_water_shimmer(self.terrain_map)
+
+        # Draw agents (on top of trees)
         self.terrain_renderer.draw_agents(self.model)
         self.terrain_renderer.draw_grid_overlay()
 

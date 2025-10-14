@@ -62,14 +62,15 @@ class TerrainRenderer:
         try:
             for filename in os.listdir(sprite_folder):
                 if filename.endswith('.png'):
-                    filepath = os.path.join(sprite_folder, filename)
-                    sprite = pygame.image.load(filepath).convert_alpha()
-
-                    # Categorize by filename
-                    if 'rainforest' in filename.lower():
-                        tree_sprites['rainforest'].append(sprite)
-                    else:
+                    # ONLY load realistic forest trees (skip fantasy, autumn, dead, etc)
+                    if 'tree_forest' in filename.lower():
+                        filepath = os.path.join(sprite_folder, filename)
+                        sprite = pygame.image.load(filepath).convert_alpha()
                         tree_sprites['forest'].append(sprite)
+                    elif 'tree_rainforest' in filename.lower():
+                        filepath = os.path.join(sprite_folder, filename)
+                        sprite = pygame.image.load(filepath).convert_alpha()
+                        tree_sprites['rainforest'].append(sprite)
 
             if tree_sprites['forest'] or tree_sprites['rainforest']:
                 print(f"✅ Loaded {len(tree_sprites['forest'])} forest sprites, {len(tree_sprites['rainforest'])} rainforest sprites")
@@ -102,64 +103,90 @@ class TerrainRenderer:
         height, width = terrain_map.shape
         visited = np.zeros((height, width), dtype=bool)
 
-        # Find all forest cells
+        # Count total forest cells
+        total_forest_cells = 0
         for y in range(height):
             for x in range(width):
                 terrain_type = TerrainType(terrain_map[y, x])
+                if terrain_type in [TerrainType.FOREST, TerrainType.RAINFOREST]:
+                    total_forest_cells += 1
 
-                # Check if this is a forest cell that hasn't been assigned to a cluster
-                if terrain_type in [TerrainType.FOREST, TerrainType.RAINFOREST] and not visited[y, x]:
-                    # Decide cluster size randomly (6-32 trees)
-                    cluster_size = random.randint(6, 32)
+        # Calculate target: 5% of forest area should have trees
+        target_tree_cells = total_forest_cells // 20
+        current_tree_cells = 0
 
-                    # Pick a tree type for this entire cluster
-                    sprite_category = 'rainforest' if terrain_type == TerrainType.RAINFOREST else 'forest'
-                    if self.tree_sprites[sprite_category]:
-                        tree_sprite = random.choice(self.tree_sprites[sprite_category])
-                    else:
-                        tree_sprite = None  # Will use procedural
+        # Create list of potential cluster starting points (every 8th cell)
+        potential_starts = []
+        for y in range(0, height, 8):
+            for x in range(0, width, 8):
+                terrain_type = TerrainType(terrain_map[y, x])
+                if terrain_type in [TerrainType.FOREST, TerrainType.RAINFOREST]:
+                    potential_starts.append((x, y, terrain_type))
 
-                    # Generate cluster starting from this position
-                    cluster_positions = []
-                    to_visit = [(x, y)]
-                    cluster_rng = random.Random(x * 1000 + y)
+        # Shuffle to randomly distribute trees across entire island
+        random.shuffle(potential_starts)
 
-                    while to_visit and len(cluster_positions) < cluster_size:
-                        cx, cy = to_visit.pop(0)
+        # Create clusters from shuffled list
+        for x, y, terrain_type in potential_starts:
+            # Stop if we've reached our target coverage
+            if current_tree_cells >= target_tree_cells:
+                break
 
-                        # Skip if out of bounds or already visited
-                        if cx < 0 or cx >= width or cy < 0 or cy >= height:
-                            continue
-                        if visited[cy, cx]:
-                            continue
+            # Check if this cell hasn't been assigned to a cluster yet
+            if not visited[y, x]:
+                # Decide cluster size randomly (5-15 trees)
+                cluster_size = random.randint(5, 15)
 
-                        # Check if same terrain type
-                        cell_terrain = TerrainType(terrain_map[cy, cx])
-                        if cell_terrain != terrain_type:
-                            continue
+                # Pick a tree type for this entire cluster (use forest trees for both)
+                sprite_category = 'forest'  # Use regular forest trees everywhere
+                if self.tree_sprites[sprite_category]:
+                    tree_sprite = random.choice(self.tree_sprites[sprite_category])
+                else:
+                    tree_sprite = None  # Will use procedural
 
-                        # Add to cluster with spacing
-                        visited[cy, cx] = True
-                        cluster_positions.append((cx, cy))
+                # Generate cluster starting from this position
+                cluster_positions = []
+                to_visit = [(x, y)]
+                cluster_rng = random.Random(x * 1000 + y)
 
-                        # Add neighbors (spaced 2 cells apart for less crowding)
-                        neighbors = [
-                            (cx-2, cy), (cx+2, cy),  # 2 cells apart horizontally
-                            (cx, cy-2), (cx, cy+2)   # 2 cells apart vertically
-                        ]
-                        cluster_rng.shuffle(neighbors)
-                        to_visit.extend(neighbors)
+                while to_visit and len(cluster_positions) < cluster_size:
+                    cx, cy = to_visit.pop(0)
 
-                    # Store cluster info
-                    if cluster_positions:
-                        self.tree_clusters.append({
-                            'positions': cluster_positions,
-                            'sprite': tree_sprite,
-                            'terrain_type': terrain_type
-                        })
+                    # Skip if out of bounds or already visited
+                    if cx < 0 or cx >= width or cy < 0 or cy >= height:
+                        continue
+                    if visited[cy, cx]:
+                        continue
+
+                    # Check if same terrain type
+                    cell_terrain = TerrainType(terrain_map[cy, cx])
+                    if cell_terrain != terrain_type:
+                        continue
+
+                    # Add to cluster with spacing
+                    visited[cy, cx] = True
+                    cluster_positions.append((cx, cy))
+
+                    # Add neighbors (spaced 2 cells apart for less crowding)
+                    neighbors = [
+                        (cx-2, cy), (cx+2, cy),  # 2 cells apart horizontally
+                        (cx, cy-2), (cx, cy+2)   # 2 cells apart vertically
+                    ]
+                    cluster_rng.shuffle(neighbors)
+                    to_visit.extend(neighbors)
+
+                # Store cluster info
+                if cluster_positions:
+                    self.tree_clusters.append({
+                        'positions': cluster_positions,
+                        'sprite': tree_sprite,
+                        'terrain_type': terrain_type
+                    })
+                    current_tree_cells += len(cluster_positions)
 
         self.clusters_generated = True
-        print(f"🌳 Generated {len(self.tree_clusters)} tree clusters")
+        coverage_pct = (current_tree_cells / total_forest_cells * 100) if total_forest_cells > 0 else 0
+        print(f"🌳 Generated {len(self.tree_clusters)} tree clusters ({current_tree_cells}/{total_forest_cells} forest cells = {coverage_pct:.1f}% coverage)")
 
     def reset_tree_clusters(self):
         """Reset tree clusters (call when terrain regenerates)"""
@@ -168,7 +195,7 @@ class TerrainRenderer:
 
     def draw_terrain(self, terrain_map, terrain_noise):
         """
-        Draw terrain tiles with tree sprites
+        Draw terrain tiles (ground only, no trees)
 
         Args:
             terrain_map: 2D array of terrain types
@@ -215,7 +242,11 @@ class TerrainRenderer:
                     terrain_color = tuple(max(0, min(255, c + noise - 10)) for c in terrain_color)
                     pygame.draw.rect(self.screen, terrain_color, rect)
 
-        # Draw trees from clusters (on top of terrain)
+    def draw_trees(self):
+        """Draw trees from clusters (separate layer)"""
+        min_x, min_y, max_x, max_y = self.camera.get_visible_bounds()
+
+        # Draw trees from clusters
         for cluster in self.tree_clusters:
             for tree_x, tree_y in cluster['positions']:
                 # Only draw if in visible area
