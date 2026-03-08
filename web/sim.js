@@ -385,3 +385,62 @@ canvas.addEventListener('mouseup', () => { isDragging = false; });
 window.addEventListener('resize', resize);
 preloadSprites();
 connect();
+
+// ─── Touch / Pinch-to-Zoom ───────────────────────────────────────────────────
+let lastTouchDist = null;
+let dragStartX = 0, dragStartY = 0, dragCamStartX = 0, dragCamStartY = 0;
+
+function getTouchDist(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    isDragging = true;
+    dragStartX = e.touches[0].clientX;
+    dragStartY = e.touches[0].clientY;
+    dragCamStartX = camX;
+    dragCamStartY = camY;
+    lastTouchDist = null;
+  } else if (e.touches.length === 2) {
+    isDragging = false;
+    lastTouchDist = getTouchDist(e.touches);
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1 && isDragging) {
+    const rect = canvas.getBoundingClientRect();
+    const dx = (e.touches[0].clientX - dragStartX) / rect.width * canvas.width;
+    const dy = (e.touches[0].clientY - dragStartY) / rect.height * canvas.height;
+    const worldDx = dx / (canvas.width / (visW * CELL_SIZE));
+    const worldDy = dy / (canvas.height / (visH * CELL_SIZE));
+    camX = dragCamStartX - worldDx;
+    camY = dragCamStartY - worldDy;
+    clampCamera();
+  } else if (e.touches.length === 2 && lastTouchDist !== null) {
+    const newDist = getTouchDist(e.touches);
+    const factor = newDist / lastTouchDist;
+    const newZoom = Math.max(minZoom, Math.min(4.0, zoom * factor));
+    const mid = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 };
+    const rect = canvas.getBoundingClientRect();
+    const mx = (mid.x - rect.left) / rect.width;
+    const my = (mid.y - rect.top) / rect.height;
+    const worldX = camX + (mx - 0.5) * visW;
+    const worldY = camY + (my - 0.5) * visH;
+    zoom = newZoom;
+    camX = worldX - (mx - 0.5) * (worldW / zoom);
+    camY = worldY - (my - 0.5) * (worldH / zoom);
+    clampCamera();
+    lastTouchDist = newDist;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  if (e.touches.length < 2) lastTouchDist = null;
+  if (e.touches.length === 0) isDragging = false;
+}, { passive: false });
