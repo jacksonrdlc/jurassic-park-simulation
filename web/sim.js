@@ -388,7 +388,7 @@ connect();
 
 // ─── Touch / Pinch-to-Zoom ───────────────────────────────────────────────────
 let lastTouchDist = null;
-let dragStartX = 0, dragStartY = 0, dragCamStartX = 0, dragCamStartY = 0;
+
 
 function getTouchDist(touches) {
   const dx = touches[0].clientX - touches[1].clientX;
