@@ -413,12 +413,11 @@ canvas.addEventListener('touchstart', (e) => {
 
 canvas.addEventListener('touchmove', (e) => {
   e.preventDefault();
+  const _visW = worldW / zoom;
+  const _visH = worldH / zoom;
   if (e.touches.length === 1 && isDragging) {
-    const rect = canvas.getBoundingClientRect();
-    const dx = (e.touches[0].clientX - dragStartX) / rect.width * canvas.width;
-    const dy = (e.touches[0].clientY - dragStartY) / rect.height * canvas.height;
-    const worldDx = dx / (canvas.width / (visW * CELL_SIZE));
-    const worldDy = dy / (canvas.height / (visH * CELL_SIZE));
+    const worldDx = (e.touches[0].clientX - dragStartX) / canvas.getBoundingClientRect().width * _visW;
+    const worldDy = (e.touches[0].clientY - dragStartY) / canvas.getBoundingClientRect().height * _visH;
     camX = dragCamStartX - worldDx;
     camY = dragCamStartY - worldDy;
     clampCamera();
@@ -430,8 +429,8 @@ canvas.addEventListener('touchmove', (e) => {
     const rect = canvas.getBoundingClientRect();
     const mx = (mid.x - rect.left) / rect.width;
     const my = (mid.y - rect.top) / rect.height;
-    const worldX = camX + (mx - 0.5) * visW;
-    const worldY = camY + (my - 0.5) * visH;
+    const worldX = camX + (mx - 0.5) * _visW;
+    const worldY = camY + (my - 0.5) * _visH;
     zoom = newZoom;
     camX = worldX - (mx - 0.5) * (worldW / zoom);
     camY = worldY - (my - 0.5) * (worldH / zoom);
