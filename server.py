@@ -7,6 +7,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 import time
+import os
 
 # Simulation imports
 from my_first_island import IslandModel, GrassAgent, HerbivoreAgent, CarnivoreAgent, TRex, Velociraptor, Triceratops, Gallimimus
@@ -162,6 +163,9 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         sim.active_connections.remove(websocket)
 
+# Static file mounts
+app.mount("/sprites", StaticFiles(directory="dino_sprites"), name="sprites")
+app.mount("/forest_sprites", StaticFiles(directory="forest_sprites"), name="forest_sprites")
 app.mount("/", StaticFiles(directory="web", html=True), name="web")
 
 if __name__ == "__main__":

@@ -1,0 +1,11 @@
+jurassic_env/
+jurassic_ml_env/
+__pycache__/
+*.pyc
+*.pyo
+models/
+models_ppo/
+logs_ppo/
+.git/
+*.png
+*.npz
