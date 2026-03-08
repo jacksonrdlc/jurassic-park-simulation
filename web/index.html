@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jurassic Park — Isla Nublar</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="status-dot"></div>
+  <div id="canvas-container">
+    <canvas id="sim-canvas"></canvas>
+  </div>
+  <canvas id="minimap" width="156" height="94"></canvas>
+  <div id="stats-drawer">
+    <div class="drawer-section">
+      <div class="drawer-label">Isla Nublar · Sector 7G</div>
+      <div class="stat-row"><span>Step</span><span class="stat-value" id="stat-step">—</span></div>
+      <div class="stat-row"><span>Status</span><span class="stat-value" id="stat-status">—</span></div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Population</div>
+      <div class="stat-row">
+        <span><span class="species-dot" style="background:#ef4444"></span>Carnivores</span>
+        <span class="stat-value" id="stat-carnivores">—</span>
+      </div>
+      <div class="stat-row">
+        <span><span class="species-dot" style="background:#22c55e"></span>Herbivores</span>
+        <span class="stat-value" id="stat-herbivores">—</span>
+      </div>
+      <div class="stat-row">
+        <span><span class="species-dot" style="background:#86efac"></span>Grass tiles</span>
+        <span class="stat-value" id="stat-grass">—</span>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Ecosystem health</div>
+      <div class="health-bar-bg"><div class="health-bar-fill" id="health-bar" style="width:50%;background:#f59e0b"></div></div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Environment</div>
+      <div class="stat-row"><span>🌡 Temperature</span><span class="stat-value" id="stat-temp">—</span></div>
+      <div class="stat-row"><span>🌧 Rainfall</span><span class="stat-value" id="stat-rain">—</span></div>
+      <div class="stat-row"><span>🕐 Time of day</span><span class="stat-value" id="stat-tod">—</span></div>
+      <div class="time-bar-bg"><div class="time-bar-fill" id="time-bar" style="width:50%"></div></div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Speed</div>
+      <div id="speed-controls">
+        <button class="speed-btn" data-speed="1">1×</button>
+        <button class="speed-btn" data-speed="2">2×</button>
+        <button class="speed-btn active" data-speed="3">3×</button>
+        <button class="speed-btn" data-speed="4">4×</button>
+        <button class="speed-btn" data-speed="5">5×</button>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Recent events</div>
+      <div id="event-log"></div>
+    </div>
+  </div>
+  <button id="drawer-toggle" title="Toggle stats (S)">≡</button>
+  <script src="sim.js"></script>
+  <script src="drawer.js"></script>
+</body>
+</html>

@@ -26,6 +26,7 @@ This is simultaneously:
 - Pre-trained models in `models/` and `models_ppo/`
 - Custom pixel art sprites, camera system, minimap, day/night cycle, weather, volcano smoke
 - DINOSAUR_PROFILES.md with deep behavioral research for 10+ species
+- Web viewer: `python server.py` → localhost:8000 (FastAPI + WebSocket + Canvas)
 
 ### 🔴 Known Problems
 
