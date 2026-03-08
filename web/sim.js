@@ -1,5 +1,5 @@
 // Core structure
-const WS_URL = `ws://${location.host}/ws`;
+const WS_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
 let ws, terrainCanvas, minimapTerrainCanvas;
 let worldW = 0, worldH = 0;
 let cellSize = 0;
